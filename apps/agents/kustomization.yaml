@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: agents
 resources:
   - namespace.yaml
+  - secrets
   - hermes.yaml
 images:
   - name: nousresearch/hermes-agent

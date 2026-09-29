@@ -30,8 +30,11 @@ spec:
       containers:
         - name: hermes
           image: nousresearch/hermes-agent
-          # Waits for the owner's first sign-in; switched to the gateway after.
-          args: ["sleep", "infinity"]
+          # Telegram gateway; only the owner (TELEGRAM_ALLOWED_USERS) can talk to it.
+          args: ["gateway", "run"]
+          envFrom:
+            - secretRef:
+                name: hermes-telegram
           env:
             - name: HERMES_UID
               value: "10000"
