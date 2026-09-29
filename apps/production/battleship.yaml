@@ -234,6 +234,9 @@ spec:
 ---
 # battleship.outegro.dev: /ws goes straight to the game server (same origin;
 # Next.js does not proxy WebSocket), everything else to the web app.
+# /ws must be a Prefix: Traefik ranks routers by rule length, and an Exact
+# Path(`/ws`) is shorter than the web app's PathPrefix(`/`), so the web app
+# swallowed the upgrade and the game never connected.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -252,7 +255,7 @@ spec:
       http:
         paths:
           - path: /ws
-            pathType: Exact
+            pathType: Prefix
             backend:
               service:
                 name: battleship-backend
