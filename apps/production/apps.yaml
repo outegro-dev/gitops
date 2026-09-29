@@ -214,6 +214,19 @@ spec:
                 secretKeyRef:
                   name: auth-signing
                   key: LOGIN_CODE_PEPPER
+            # Sign-in with Google (ID-02).
+            - name: GOOGLE_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: google-oauth
+                  key: GOOGLE_CLIENT_ID
+            - name: GOOGLE_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: google-oauth
+                  key: GOOGLE_CLIENT_SECRET
+            - name: GOOGLE_REDIRECT_URI
+              value: https://id.outegro.dev/login/google/callback
           ports:
             - name: http
               containerPort: 4001
