@@ -1,0 +1,110 @@
+# pay.outegro.dev: purchases, the Lava return page, subscriptions.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pay-web
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: pay-web
+  template:
+    metadata:
+      labels:
+        app: pay-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: pay-web
+          image: outegro/pay-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: PAYMENTS_API_URL
+              value: http://payments-backend:4003
+            - name: AUTH_API_URL
+              value: http://auth-backend:4001
+            - name: ID_URL
+              value: https://id.outegro.dev
+            - name: APP_URL
+              value: https://pay.outegro.dev
+            - name: SITE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform
+                  key: SITE_URL
+            # Buyers are sent only to these payment page origins.
+            - name: CHECKOUT_ORIGINS
+              value: https://app.lava.top,https://pay.lava.top,https://lava.top
+            - name: CLIENT_IP_SOURCE
+              value: cf-connecting-ip
+          ports:
+            - name: http
+              containerPort: 3003
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 320Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: pay-web
+  namespace: outegro
+spec:
+  selector:
+    app: pay-web
+  ports:
+    - name: http
+      port: 3003
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pay
+  namespace: outegro
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - pay.outegro.dev
+      secretName: outegro-dev-tls
+  rules:
+    - host: pay.outegro.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: pay-web
+                port:
+                  name: http

@@ -13,6 +13,8 @@ resources:
   - migrate.yaml
   - apps.yaml
   - payments.yaml
+  - battleship.yaml
+  - pay.yaml
   - hooks.yaml
   - watchdog.yaml
 images:
@@ -31,3 +33,12 @@ images:
   - name: outegro/payments-backend
     newTag: 50fa631b2c19
     newName: ghcr.io/outegro-dev/payments-backend
+  - name: outegro/battleship-backend
+    newTag: 50fa631b2c19
+    newName: ghcr.io/outegro-dev/battleship-backend
+  - name: outegro/battleship-web
+    newTag: 50fa631b2c19
+    newName: ghcr.io/outegro-dev/battleship-web
+  - name: outegro/pay-web
+    newTag: 50fa631b2c19
+    newName: ghcr.io/outegro-dev/pay-web

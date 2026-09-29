@@ -1,0 +1,267 @@
+# Battleship: authoritative game server (HTTP + WebSocket /ws) and the web app.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: battleship-migrate
+  namespace: outegro
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: outegro/battleship-backend
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-battleship
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://battleship:$(DB_PASSWORD)@pg-rw:5432/battleship
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: battleship-backend
+  namespace: outegro
+spec:
+  # One replica: live matches are held in memory and rebuilt from moves on start.
+  replicas: 1
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: battleship-backend
+  template:
+    metadata:
+      labels:
+        app: battleship-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: battleship-backend
+          image: outegro/battleship-backend
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: platform
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=256
+            - name: LOG_LEVEL
+              value: info
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-battleship
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://battleship:$(DB_PASSWORD)@pg-rw:5432/battleship
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey
+                  key: password
+            - name: VALKEY_URL
+              value: redis://:$(VALKEY_PASSWORD)@valkey:6379/3
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_URL
+              value: amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@rabbitmq:5672
+            - name: AUTH_JWKS_URL
+              value: http://auth-backend:4001/.well-known/jwks.json
+            - name: WS_ALLOWED_ORIGINS
+              value: https://battleship.outegro.dev
+          ports:
+            - name: http
+              containerPort: 4004
+          readinessProbe:
+            httpGet:
+              path: /health/deep
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: battleship-backend
+  namespace: outegro
+spec:
+  selector:
+    app: battleship-backend
+  ports:
+    - name: http
+      port: 4004
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: battleship-web
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: battleship-web
+  template:
+    metadata:
+      labels:
+        app: battleship-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: battleship-web
+          image: outegro/battleship-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: BATTLESHIP_API_URL
+              value: http://battleship-backend:4004
+            - name: GAME_WS_URL
+              value: wss://battleship.outegro.dev
+            - name: AUTH_API_URL
+              value: http://auth-backend:4001
+            - name: PAYMENTS_API_URL
+              value: http://payments-backend:4003
+            - name: ID_URL
+              value: https://id.outegro.dev
+            - name: APP_URL
+              value: https://battleship.outegro.dev
+            - name: SITE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform
+                  key: SITE_URL
+            # The shop redirects buyers only to these payment page origins.
+            - name: CHECKOUT_ORIGINS
+              value: https://app.lava.top,https://pay.lava.top,https://lava.top
+            - name: CLIENT_IP_SOURCE
+              value: cf-connecting-ip
+          ports:
+            - name: http
+              containerPort: 3005
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 320Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: battleship-web
+  namespace: outegro
+spec:
+  selector:
+    app: battleship-web
+  ports:
+    - name: http
+      port: 3005
+      targetPort: http
+---
+# battleship.outegro.dev: /ws goes straight to the game server (same origin;
+# Next.js does not proxy WebSocket), everything else to the web app.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: battleship
+  namespace: outegro
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - battleship.outegro.dev
+      secretName: outegro-dev-tls
+  rules:
+    - host: battleship.outegro.dev
+      http:
+        paths:
+          - path: /ws
+            pathType: Exact
+            backend:
+              service:
+                name: battleship-backend
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: battleship-web
+                port:
+                  name: http
