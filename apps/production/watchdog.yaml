@@ -208,6 +208,7 @@ data:
     probe battleship-backend http://battleship-backend.outegro.svc:4004/health/deep
     probe battleship https://battleship.outegro.dev/health
     probe pay https://pay.outegro.dev/health
+    probe admin https://admin.outegro.dev/health
 
     # Alerting with state: key, failing since, last notified, message.
     grace_for() {

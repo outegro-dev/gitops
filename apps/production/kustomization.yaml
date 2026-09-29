@@ -15,6 +15,7 @@ resources:
   - payments.yaml
   - battleship.yaml
   - pay.yaml
+  - admin.yaml
   - hooks.yaml
   - watchdog.yaml
 images:
@@ -42,3 +43,6 @@ images:
   - name: outegro/pay-web
     newTag: 58a8bd8ce6d8
     newName: ghcr.io/outegro-dev/pay-web
+  - name: outegro/admin-web
+    newTag: 58a8bd8ce6d8
+    newName: ghcr.io/outegro-dev/admin-web

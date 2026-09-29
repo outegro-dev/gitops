@@ -1,0 +1,106 @@
+# admin.outegro.dev: the operator console.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: admin-web
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: admin-web
+  template:
+    metadata:
+      labels:
+        app: admin-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: admin-web
+          image: outegro/admin-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: AUTH_API_URL
+              value: http://auth-backend:4001
+            - name: NOTIFICATIONS_API_URL
+              value: http://notifications-backend:4002
+            - name: PAYMENTS_ADMIN_API_URL
+              value: http://payments-backend:4003
+            - name: BATTLESHIP_API_URL
+              value: http://battleship-backend:4004
+            - name: ID_URL
+              value: https://id.outegro.dev
+            - name: APP_URL
+              value: https://admin.outegro.dev
+            - name: CLIENT_IP_SOURCE
+              value: cf-connecting-ip
+          ports:
+            - name: http
+              containerPort: 3004
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 320Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: admin-web
+  namespace: outegro
+spec:
+  selector:
+    app: admin-web
+  ports:
+    - name: http
+      port: 3004
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: admin
+  namespace: outegro
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - admin.outegro.dev
+      secretName: outegro-dev-tls
+  rules:
+    - host: admin.outegro.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: admin-web
+                port:
+                  name: http
