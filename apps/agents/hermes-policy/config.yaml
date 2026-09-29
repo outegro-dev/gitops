@@ -1,0 +1,84 @@
+# Hermes managed policy (HERMES_MANAGED_DIR): these keys beat
+# /opt/data/config.yaml, /opt/data/.env and `hermes config set`, so neither
+# chat commands nor the agent itself can loosen them. Checked against
+# hermes-agent v2026.9.24 (docs: managed-scope, telegram, tools, providers).
+
+# H-05 no spend: only the ChatGPT subscription route (OpenAI Codex, OAuth).
+# No fallback providers, and every auxiliary task either pinned to the same
+# route or off.
+model:
+  provider: openai-codex
+  default: gpt-5.6-sol
+  base_url: ""
+  openai_runtime: auto
+fallback_providers: []
+fallback_model: []
+delegation:
+  fallback_providers: []
+auxiliary:
+  vision: {provider: openai-codex, model: gpt-5.6-sol, fallback_chain: []}
+  compression: {provider: openai-codex, model: gpt-5.6-sol, fallback_chain: []}
+  approval: {provider: openai-codex, model: gpt-5.6-sol, fallback_chain: []}
+  title_generation: {enabled: false, model_upgrade_enabled: false}
+  background_review: {enabled: false}
+curator:
+  enabled: false
+kanban:
+  dispatch_in_gateway: false
+  auto_decompose: false
+# Unattended runs stay off until no-spend is proven (H-05).
+cron:
+  allow_agent_scheduling: false
+memory:
+  write_approval: true
+  provider: ""
+web:
+  keyless_fallback: false
+  search_backend: openai-native
+stt:
+  enabled: false
+
+# H-04 tool scope: the file tools and the terminal run as the same user that
+# owns /opt/data (OAuth tokens, bot token), so they are off, not confined.
+agent:
+  service_tier: ""
+  image_input_mode: native
+  disabled_toolsets: [terminal, file, code_execution, browser, delegation, cronjob, skills, image_gen,
+                      video_gen, video, tts, computer_use, homeassistant, kanban, connections, x_search, spotify]
+platform_toolsets:
+  telegram: [clarify, todo, no_mcp]
+approvals:
+  mode: manual
+  deny: ["*"]
+  destructive_slash_confirm: true
+platforms:
+  # The image turns on a local HTTP API; nothing here uses it.
+  api_server:
+    enabled: false
+
+# H-04 / H-07 chat gates. Who may talk is TELEGRAM_ALLOWED_USERS (Nick only,
+# from the Secret); where Hermes answers is this one supergroup (and Nick's
+# DMs, which the chat gate never filters). Every topic of the group answers
+# with the minimal tool set above; rules bind to topic IDs, not names.
+telegram:
+  allowed_chats: ["-1003766647958"]
+  require_mention: false
+  guest_mode: false
+  observe_unmentioned_group_messages: false
+  exclusive_bot_mentions: true
+  unauthorized_dm_behavior: ignore
+  # "0" matches nobody: Nick is a regular user limited to the commands below
+  # (no /model, /fast, /moa, /loop, /goal, /bg, /kanban, /login, /topup, /yolo).
+  allow_admin_from: ["0"]
+  group_allow_admin_from: ["0"]
+  user_allowed_commands: [start, help, whoami, commands, new, status, usage, stop, approve, deny,
+                          sethome, title, sessions, resume, compress, retry, undo, insights]
+  group_user_allowed_commands: [start, help, whoami, commands, new, status, usage, stop, approve, deny,
+                                sethome, title, sessions, resume, compress, retry, undo, insights]
+  channel_prompts:
+    "1": |
+      [RULESET topic=1 version=2026-09-29.1]
+      This is the General topic of Nick's private workspace. Only Nick writes here.
+      Answer in the language of his message, briefly and to the point.
+      You have no terminal, file, browser, code or scheduling tools in this workspace:
+      if a task needs one, say so instead of improvising.

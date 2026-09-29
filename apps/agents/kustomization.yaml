@@ -9,3 +9,9 @@ resources:
 images:
   - name: nousresearch/hermes-agent
     newTag: v2026.9.24
+# Managed policy (tools, model route, chat gates); a change rolls the pod.
+configMapGenerator:
+  - name: hermes-policy
+    files:
+      - config.yaml=hermes-policy/config.yaml
+      - .env=hermes-policy/env

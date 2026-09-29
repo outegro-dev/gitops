@@ -40,6 +40,9 @@ spec:
               value: "10000"
             - name: HERMES_GID
               value: "10000"
+            # Policy that wins over /opt/data and chat commands (apps/agents/hermes-policy).
+            - name: HERMES_MANAGED_DIR
+              value: /etc/hermes-policy
           resources:
             requests:
               cpu: 100m
@@ -49,7 +52,13 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /opt/data
+            - name: policy
+              mountPath: /etc/hermes-policy
+              readOnly: true
       volumes:
         - name: data
           persistentVolumeClaim:
             claimName: hermes-data
+        - name: policy
+          configMap:
+            name: hermes-policy
