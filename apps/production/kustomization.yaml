@@ -18,6 +18,7 @@ resources:
   - admin.yaml
   - hooks.yaml
   - watchdog.yaml
+  - restore-drill.yaml
 images:
   - name: outegro/landing-web
     newTag: 79c64807ab70
