@@ -1,0 +1,30 @@
+# Hermes Agent.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: agents
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:outegro-dev/gitops.git
+    targetRevision: master
+    path: apps/agents
+  destination:
+    server: https://kubernetes.default.svc
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 10
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 10m

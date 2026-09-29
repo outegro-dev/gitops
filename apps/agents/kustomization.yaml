@@ -1,0 +1,10 @@
+# Hermes Agent (chapter 11): owner-only assistant on the ChatGPT subscription.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: agents
+resources:
+  - namespace.yaml
+  - hermes.yaml
+images:
+  - name: nousresearch/hermes-agent
+    newTag: v2026.9.24

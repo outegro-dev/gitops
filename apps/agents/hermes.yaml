@@ -1,0 +1,52 @@
+# Provider openai-codex (OAuth with the owner's ChatGPT plan, no paid API
+# keys). OAuth state, memory and skills live on the volume; Recreate keeps a
+# single process refreshing the tokens.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: hermes-data
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: hermes
+  template:
+    metadata:
+      labels:
+        app: hermes
+    spec:
+      containers:
+        - name: hermes
+          image: nousresearch/hermes-agent
+          # Waits for the owner's first sign-in; switched to the gateway after.
+          args: ["sleep", "infinity"]
+          env:
+            - name: HERMES_UID
+              value: "10000"
+            - name: HERMES_GID
+              value: "10000"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: data
+              mountPath: /opt/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: hermes-data
