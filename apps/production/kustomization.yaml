@@ -12,6 +12,7 @@ resources:
   - rabbitmq.yaml
   - migrate.yaml
   - apps.yaml
+  - payments.yaml
   - hooks.yaml
   - watchdog.yaml
 images:
@@ -27,3 +28,6 @@ images:
   - name: outegro/notifications-backend
     newTag: 45c3df6f57e2
     newName: ghcr.io/outegro-dev/notifications-backend
+  - name: outegro/payments-backend
+    newTag: 45c3df6f57e2
+    newName: ghcr.io/outegro-dev/payments-backend

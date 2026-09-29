@@ -35,3 +35,10 @@ spec:
                 name: notifications-backend
                 port:
                   name: http
+          - path: /lava
+            pathType: Exact
+            backend:
+              service:
+                name: payments-backend
+                port:
+                  name: http

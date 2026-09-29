@@ -1,0 +1,166 @@
+# Payments (Lava): checkout, webhooks via hooks.outegro.dev/lava, grants.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: payments-migrate
+  namespace: outegro
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: outegro/payments-backend
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-payments
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://payments:$(DB_PASSWORD)@pg-rw:5432/payments
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payments-backend
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: payments-backend
+  template:
+    metadata:
+      labels:
+        app: payments-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: payments-backend
+          image: outegro/payments-backend
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: platform
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=256
+            - name: LOG_LEVEL
+              value: info
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-payments
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://payments:$(DB_PASSWORD)@pg-rw:5432/payments
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey
+                  key: password
+            - name: VALKEY_URL
+              value: redis://:$(VALKEY_PASSWORD)@valkey:6379/2
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_URL
+              value: amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@rabbitmq:5672
+            - name: AUTH_JWKS_URL
+              value: http://auth-backend:4001/.well-known/jwks.json
+            # Buyers who signed up before payments existed are looked up once.
+            - name: AUTH_INTERNAL_URL
+              value: http://auth-backend:4001
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-internal
+                  key: INTERNAL_API_TOKEN
+            - name: LAVA_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: lava
+                  key: LAVA_API_KEY
+            - name: LAVA_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: lava-webhook
+                  key: LAVA_WEBHOOK_SECRET
+            - name: PAY_WEB_URL
+              value: https://pay.outegro.dev
+            # Apps that start a purchase and get the buyer back.
+            - name: CHECKOUT_RETURN_ORIGINS
+              value: https://battleship.outegro.dev
+            # Open for the owner's first real payment (QA verdict 29.09.2026);
+            # "false" closes new checkouts, confirmations keep working.
+            - name: CHECKOUT_ENABLED
+              value: "true"
+          ports:
+            - name: http
+              containerPort: 4003
+          readinessProbe:
+            httpGet:
+              path: /health/deep
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-backend
+  namespace: outegro
+spec:
+  selector:
+    app: payments-backend
+  ports:
+    - name: http
+      port: 4003
+      targetPort: http

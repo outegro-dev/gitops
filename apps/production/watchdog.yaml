@@ -204,6 +204,7 @@ data:
     probe id https://id.outegro.dev/health
     probe auth http://auth-backend.outegro.svc:4001/health/deep
     probe notifications http://notifications-backend.outegro.svc:4002/health/deep
+    probe payments http://payments-backend.outegro.svc:4003/health/deep
 
     # Alerting with state: key, failing since, last notified, message.
     grace_for() {
