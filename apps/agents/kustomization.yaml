@@ -6,6 +6,7 @@ resources:
   - namespace.yaml
   - secrets
   - hermes.yaml
+  - network-policy.yaml
 images:
   - name: nousresearch/hermes-agent
     newTag: v2026.9.24

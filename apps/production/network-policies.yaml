@@ -1,0 +1,27 @@
+# The services' app port stays open to the cluster (Traefik, the web apps'
+# BFFs, other services, kubelet probes); their metrics port (9464) answers
+# only Prometheus. Selected pods deny any other port.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: services-metrics-port
+  namespace: outegro
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [auth-backend, notifications-backend, payments-backend, battleship-backend]
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - port: http
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: prometheus
+      ports:
+        - port: metrics

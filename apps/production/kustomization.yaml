@@ -18,6 +18,7 @@ resources:
   - admin.yaml
   - hooks.yaml
   - watchdog.yaml
+  - network-policies.yaml
 images:
   - name: outegro/landing-web
     newTag: c5c08881f9a1
