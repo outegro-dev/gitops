@@ -14,10 +14,14 @@ resources:
   - apps.yaml
 images:
   - name: outegro/landing-web
-    newTag: 42e768099635
+    newTag: dbf6cdd9c49c
+    newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: 42e768099635
+    newTag: dbf6cdd9c49c
+    newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: 42e768099635
+    newTag: dbf6cdd9c49c
+    newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: 42e768099635
+    newTag: dbf6cdd9c49c
+    newName: ghcr.io/outegro-dev/notifications-backend
