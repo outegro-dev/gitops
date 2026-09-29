@@ -64,8 +64,9 @@ spec:
             requests:
               cpu: 50m
               memory: 128Mi
+            # The image optimizer (sharp) decodes the 2x posters in memory.
             limits:
-              memory: 320Mi
+              memory: 512Mi
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
