@@ -36,6 +36,10 @@ grafana:
         memory: 48Mi
       limits:
         memory: 128Mi
+    datasources:
+      # Alertmanager is off (see the header).
+      alertmanager:
+        enabled: false
   additionalDataSources:
     - name: Loki
       uid: loki
