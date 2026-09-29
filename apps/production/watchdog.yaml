@@ -210,11 +210,30 @@ data:
     probe pay https://pay.outegro.dev/health
     probe admin https://admin.outegro.dev/health
 
+    # Prometheus: firing alerts from its rules (gitops platform/monitoring).
+    # The watchdog is their messenger: it already holds the Telegram bot.
+    # Pods, OOM kills and readiness are checked above, so those are skipped.
+    if prom=$(curl -fsS -m 10 "$PROMETHEUS/api/v1/alerts" 2>/dev/null); then
+      printf '%s\n' "$prom" | jq -r '
+        .data.alerts[]
+        | select(.state == "firing")
+        | select(.labels.alertname | IN("Watchdog", "InfoInhibitor",
+            "KubePodCrashLooping", "KubePodNotReady", "ContainerOOMKilled") | not)
+        | select((.labels.severity // "warning") | IN("info", "none") | not)
+        | ([.labels.namespace, .labels.pod, .labels.service, .labels.queue, .labels.name,
+            .labels.job_name, .labels.deployment, .labels.statefulset, .labels.persistentvolumeclaim]
+           | map(select(. != null)) | unique | join("/")) as $scope
+        | "prom:\(.labels.alertname):\($scope)\t\(.labels.alertname) (\(.labels.severity // "warning")): \(.annotations.summary // $scope)"' >> "$results"
+    else
+      fail "prom:api" "Prometheus alerts API does not answer"
+    fi
+
     # Alerting with state: key, failing since, last notified, message.
     grace_for() {
       case "$1" in
         argo:*) echo 900 ;;
         http:*) echo 240 ;;
+        prom:api) echo 900 ;;
         *) echo 0 ;;
       esac
     }
@@ -318,6 +337,8 @@ spec:
               env:
                 - name: HOME
                   value: /tmp
+                - name: PROMETHEUS
+                  value: http://monitoring-prometheus.monitoring.svc:9090
                 - name: TELEGRAM_BOT_TOKEN
                   valueFrom:
                     secretKeyRef:
