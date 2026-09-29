@@ -1,0 +1,354 @@
+# Watchdog: every 5 minutes it checks the cluster and tells the owner in
+# Telegram (@outegro_dev_alerts_bot) when something breaks, reminds every
+# 6 hours while it stays broken, reports recovery, and sends a daily digest.
+# Read-only in the cluster except its own state ConfigMap.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: watchdog
+  namespace: outegro
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: outegro-watchdog
+rules:
+  - apiGroups: [""]
+    resources: [pods, nodes]
+    verbs: [get, list]
+  - apiGroups: [cert-manager.io]
+    resources: [certificates]
+    verbs: [get, list]
+  - apiGroups: [postgresql.cnpg.io]
+    resources: [clusters, backups]
+    verbs: [get, list]
+  - apiGroups: [argoproj.io]
+    resources: [applications]
+    verbs: [get, list]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: outegro-watchdog
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: outegro-watchdog
+subjects:
+  - kind: ServiceAccount
+    name: watchdog
+    namespace: outegro
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: watchdog-state
+  namespace: outegro
+rules:
+  - apiGroups: [""]
+    resources: [configmaps]
+    verbs: [create]
+  - apiGroups: [""]
+    resources: [configmaps]
+    resourceNames: [watchdog-state]
+    verbs: [get, patch, update]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: watchdog-state
+  namespace: outegro
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: watchdog-state
+subjects:
+  - kind: ServiceAccount
+    name: watchdog
+    namespace: outegro
+---
+# local-path volumes live on the node's root filesystem, so `df` on this
+# tiny volume shows the host disk without any host access.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: watchdog-disk-probe
+  namespace: outegro
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 16Mi
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: watchdog-script
+  namespace: outegro
+data:
+  watchdog.sh: |
+    #!/bin/sh
+    set -u
+    NOW=$(date +%s)
+    NS=outegro
+    STATE_CM=watchdog-state
+    REMIND_S=21600
+    TAB=$(printf '\t')
+    WATCHED='["outegro","agents","argocd","cert-manager","cnpg-system","kube-system"]'
+    results=/tmp/results
+    : > "$results"
+
+    fail() { printf '%s\t%s\n' "$1" "$2" >> "$results"; }
+    get() { kubectl get "$@" -o json 2>/dev/null; }
+
+    # Pods: crash loops, image pull errors, OOM kills, long "not ready".
+    if pods=$(get pods -A); then
+      printf '%s\n' "$pods" | jq -r --argjson now "$NOW" --argjson watched "$WATCHED" '
+        .items[]
+        | select(.metadata.namespace as $n | $watched | index($n))
+        | select(.status.phase != "Succeeded")
+        | select(((.metadata.ownerReferences // []) | map(.kind) | index("Job")) | not)
+        | (.metadata.labels.app // .metadata.labels["app.kubernetes.io/name"]
+           // .metadata.labels["k8s-app"] // .metadata.name) as $app
+        | ([.status.containerStatuses[]?.state.waiting.reason // empty
+            | select(IN("CrashLoopBackOff", "ImagePullBackOff", "ErrImagePull",
+                        "CreateContainerConfigError"))] | first) as $bad
+        | ((.status.conditions // []) | map(select(.type == "Ready")) | first) as $ready
+        | ($now - (($ready.lastTransitionTime // .metadata.creationTimestamp) | fromdateiso8601)) as $age
+        | if $bad then
+            "pod:\(.metadata.namespace)/\($app)\t\(.metadata.namespace)/\(.metadata.name): \($bad)"
+          elif (($ready.status // "False") != "True" and $age > 600) then
+            "pod:\(.metadata.namespace)/\($app)\t\(.metadata.namespace)/\(.metadata.name) not ready for \(($age / 60) | floor) min"
+          else empty end' >> "$results"
+      printf '%s\n' "$pods" | jq -r --argjson now "$NOW" --argjson watched "$WATCHED" '
+        .items[]
+        | select(.metadata.namespace as $n | $watched | index($n))
+        | . as $pod
+        | .status.containerStatuses[]?
+        | select(.lastState.terminated.reason? == "OOMKilled")
+        | select(($now - (.lastState.terminated.finishedAt | fromdateiso8601)) < 900)
+        | "oom:\($pod.metadata.namespace)/\(.name)\t\($pod.metadata.namespace)/\($pod.metadata.name): container \(.name) ran out of memory"' >> "$results"
+      running=$(printf '%s\n' "$pods" | jq '[.items[] | select(.status.phase == "Running")] | length')
+    else
+      fail "kube:pods" "cannot list pods"
+      running="?"
+    fi
+
+    # Nodes: readiness and kubelet pressure conditions.
+    if nodes=$(get nodes); then
+      printf '%s\n' "$nodes" | jq -r '
+        .items[] | .metadata.name as $n | .status.conditions[]
+        | select((.type == "Ready" and .status != "True")
+                 or (.type != "Ready" and .status == "True"))
+        | "node:\($n):\(.type)\tnode \($n): \(.type)=\(.status) (\(.reason // ""))"' >> "$results"
+    fi
+
+    # Host disk through the probe volume.
+    disk=$(df -P /probe | awk 'NR == 2 { sub("%", "", $5); print $5 }')
+    if [ -n "$disk" ] && [ "$disk" -ge 80 ]; then
+      fail "disk" "server disk ${disk}% used"
+    fi
+
+    # Certificates: ready and not close to expiry.
+    cert_days="?"
+    if certs=$(get certificates -A); then
+      printf '%s\n' "$certs" | jq -r --argjson now "$NOW" '
+        .items[]
+        | ((.status.conditions // []) | map(select(.type == "Ready")) | first) as $ready
+        | ((((.status.notAfter // "1970-01-01T00:00:00Z") | fromdateiso8601) - $now) / 86400 | floor) as $days
+        | if ($ready.status // "False") != "True" then
+            "cert:\(.metadata.name)\tcertificate \(.metadata.name) not ready: \($ready.message // "unknown")"
+          elif $days < 14 then
+            "cert:\(.metadata.name)\tcertificate \(.metadata.name) expires in \($days) days"
+          else empty end' >> "$results"
+      cert_days=$(printf '%s\n' "$certs" | jq --argjson now "$NOW" \
+        '[.items[] | select(.status.notAfter) | ((.status.notAfter | fromdateiso8601) - $now) / 86400 | floor] | min // "?"')
+    fi
+
+    # PostgreSQL: archiving, last backup result and age.
+    backup_age="?"
+    if cluster=$(kubectl -n "$NS" get cluster pg -o json 2>/dev/null); then
+      printf '%s\n' "$cluster" | jq -r '
+        .status.conditions[]
+        | select(IN(.type; "Ready", "ContinuousArchiving", "LastBackupSucceeded") and .status != "True")
+        | "pg:\(.type)\tPostgreSQL \(.type): \(.reason // "") \(.message // "")"' >> "$results"
+    else
+      fail "pg:cluster" "PostgreSQL cluster pg is missing"
+    fi
+    if backups=$(kubectl -n "$NS" get backups -o json 2>/dev/null); then
+      last=$(printf '%s\n' "$backups" | jq -r \
+        '[.items[] | select(.status.phase == "completed" and .status.stoppedAt) | .status.stoppedAt | fromdateiso8601] | max // 0')
+      if [ "$last" -gt 0 ]; then
+        backup_age=$(( (NOW - last) / 3600 ))
+        [ "$backup_age" -ge 26 ] && fail "pg:backup-age" "last completed backup is ${backup_age} h old"
+      else
+        fail "pg:backup-age" "no completed backup found"
+      fi
+    fi
+
+    # Argo CD: every application synced and healthy (grace covers deploys).
+    if apps=$(kubectl -n argocd get applications -o json 2>/dev/null); then
+      printf '%s\n' "$apps" | jq -r '
+        .items[]
+        | select(.status.sync.status != "Synced" or .status.health.status != "Healthy")
+        | "argo:\(.metadata.name)\tArgo CD \(.metadata.name): \(.status.sync.status // "?") / \(.status.health.status // "?")"' >> "$results"
+    fi
+
+    # HTTP: public pages through Cloudflare, services from inside.
+    probe() {
+      code=$(curl -s -o /dev/null -m 10 -w '%{http_code}' "$2" || true)
+      [ "$code" = 200 ] || fail "http:$1" "$2 answered ${code:-no response}"
+    }
+    probe landing https://outegro.dev/
+    probe id https://id.outegro.dev/health
+    probe auth http://auth-backend.outegro.svc:4001/health/deep
+    probe notifications http://notifications-backend.outegro.svc:4002/health/deep
+
+    # Alerting with state: key, failing since, last notified, message.
+    grace_for() {
+      case "$1" in
+        argo:*) echo 900 ;;
+        http:*) echo 240 ;;
+        *) echo 0 ;;
+      esac
+    }
+    old=/tmp/old
+    new=/tmp/new
+    first_run=0
+    kubectl -n "$NS" get configmap "$STATE_CM" -o jsonpath='{.data.state}' > "$old" 2>/dev/null || first_run=1
+    : > "$new"
+    sort -u -t "$TAB" -k1,1 "$results" > /tmp/failing
+    alerts=""
+    reminders=""
+    recovered=""
+    nl='
+    '
+    while IFS="$TAB" read -r key msg; do
+      [ -n "$key" ] || continue
+      prev=$(awk -F "$TAB" -v k="$key" '$1 == k { print $2 " " $3 }' "$old")
+      since=${prev%% *}
+      notified=${prev##* }
+      [ -n "$prev" ] || { since=$NOW; notified=0; }
+      if [ $((NOW - since)) -ge "$(grace_for "$key")" ]; then
+        if [ "$notified" = 0 ]; then
+          alerts="${alerts}${nl}• ${msg}"
+          notified=$NOW
+        elif [ $((NOW - notified)) -ge "$REMIND_S" ]; then
+          reminders="${reminders}${nl}• ${msg}"
+          notified=$NOW
+        fi
+      fi
+      printf '%s\t%s\t%s\t%s\n' "$key" "$since" "$notified" "$msg" >> "$new"
+    done < /tmp/failing
+    digest_day=""
+    while IFS="$TAB" read -r key since notified msg; do
+      [ -n "$key" ] || continue
+      if [ "$key" = "_digest" ]; then digest_day=$since; continue; fi
+      if ! awk -F "$TAB" -v k="$key" '$1 == k { found = 1 } END { exit !found }' /tmp/failing; then
+        [ "$notified" != 0 ] && recovered="${recovered}${nl}• ${msg}"
+      fi
+    done < "$old"
+
+    send() {
+      curl -fsS -m 15 -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+        --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+        --data-urlencode "text=$1" \
+        -d disable_web_page_preview=true > /dev/null \
+        || echo "telegram send failed" >&2
+    }
+
+    failing_count=$(grep -c . /tmp/failing || true)
+    if [ "$first_run" = 1 ]; then
+      send "👋 outegro.dev watchdog is on duty: pods, nodes, disk, certificates, backups, Argo CD and health checks every 5 minutes."
+    fi
+    [ -n "$alerts" ] && send "🔴 outegro.dev: problem${alerts}"
+    [ -n "$reminders" ] && send "🟠 outegro.dev: still failing${reminders}"
+    [ -n "$recovered" ] && send "🟢 outegro.dev: recovered${recovered}"
+
+    today=$(date -u +%Y%m%d)
+    if [ "$(date -u +%H)" -ge 7 ] && [ "$digest_day" != "$today" ]; then
+      if [ "$failing_count" = 0 ]; then status="All checks pass."; else status="Failing checks: ${failing_count}."; fi
+      send "☀️ outegro.dev daily: ${status}${nl}Pods running: ${running}${nl}Last backup: ${backup_age} h ago${nl}Certificate: ${cert_days} days left${nl}Disk: ${disk:-?}% used"
+      digest_day=$today
+    fi
+    printf '_digest\t%s\t0\tdigest\n' "${digest_day:-0}" >> "$new"
+
+    kubectl -n "$NS" create configmap "$STATE_CM" --from-file=state="$new" \
+      --dry-run=client -o yaml | kubectl apply -f - > /dev/null
+    echo "checks done: ${failing_count} failing"
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: watchdog
+  namespace: outegro
+spec:
+  schedule: "*/5 * * * *"
+  concurrencyPolicy: Forbid
+  startingDeadlineSeconds: 120
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 180
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          serviceAccountName: watchdog
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65534
+            runAsGroup: 65534
+            fsGroup: 65534
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: watchdog
+              image: alpine/k8s:1.36.5
+              imagePullPolicy: IfNotPresent
+              command: ["sh", "/scripts/watchdog.sh"]
+              env:
+                - name: HOME
+                  value: /tmp
+                - name: TELEGRAM_BOT_TOKEN
+                  valueFrom:
+                    secretKeyRef:
+                      name: alerts-telegram
+                      key: TELEGRAM_BOT_TOKEN
+                - name: TELEGRAM_CHAT_ID
+                  valueFrom:
+                    secretKeyRef:
+                      name: alerts-telegram
+                      key: TELEGRAM_CHAT_ID
+              resources:
+                requests:
+                  cpu: 20m
+                  memory: 32Mi
+                limits:
+                  memory: 128Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: script
+                  mountPath: /scripts
+                - name: tmp
+                  mountPath: /tmp
+                - name: probe
+                  mountPath: /probe
+                  readOnly: true
+          volumes:
+            - name: script
+              configMap:
+                name: watchdog-script
+            - name: tmp
+              emptyDir:
+                sizeLimit: 16Mi
+            - name: probe
+              persistentVolumeClaim:
+                claimName: watchdog-disk-probe

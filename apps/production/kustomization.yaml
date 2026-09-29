@@ -13,6 +13,7 @@ resources:
   - migrate.yaml
   - apps.yaml
   - hooks.yaml
+  - watchdog.yaml
 images:
   - name: outegro/landing-web
     newTag: dbf6cdd9c49c
