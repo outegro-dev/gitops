@@ -316,6 +316,16 @@ spec:
                 secretKeyRef:
                   name: notifications-providers
                   key: TELEGRAM_BOT_TOKEN
+            # Account linking (N-04): deep links to the bot, updates via hooks.
+            - name: TELEGRAM_BOT_USERNAME
+              value: outegro_dev_bot
+            - name: TELEGRAM_WEBHOOK_URL
+              value: https://hooks.outegro.dev/telegram
+            - name: TELEGRAM_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: telegram-webhook
+                  key: TELEGRAM_WEBHOOK_SECRET
           ports:
             - name: http
               containerPort: 4002

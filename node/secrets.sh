@@ -63,5 +63,11 @@ once "$NS" pg-auth --type=kubernetes.io/basic-auth \
   --from-literal=username=auth --from-literal=password="$(hex 24)"
 once "$NS" pg-notifications --type=kubernetes.io/basic-auth \
   --from-literal=username=notifications --from-literal=password="$(hex 24)"
+once "$NS" pg-payments --type=kubernetes.io/basic-auth \
+  --from-literal=username=payments --from-literal=password="$(hex 24)"
+once "$NS" pg-battleship --type=kubernetes.io/basic-auth \
+  --from-literal=username=battleship --from-literal=password="$(hex 24)"
 once "$NS" valkey --from-literal=password="$(hex 32)"
 once "$NS" rabbitmq --from-literal=username=outegro --from-literal=password="$(hex 32)"
+# Telegram echoes it on every webhook call (X-Telegram-Bot-Api-Secret-Token).
+once "$NS" telegram-webhook --from-literal=TELEGRAM_WEBHOOK_SECRET="$(hex 32)"

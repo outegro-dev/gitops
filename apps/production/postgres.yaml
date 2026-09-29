@@ -64,6 +64,16 @@ spec:
         login: true
         passwordSecret:
           name: pg-notifications
+      - name: payments
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-payments
+      - name: battleship
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-battleship
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -78,6 +88,28 @@ metadata:
 spec:
   name: notifications
   owner: notifications
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: payments
+  namespace: outegro
+spec:
+  name: payments
+  owner: payments
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: battleship
+  namespace: outegro
+spec:
+  name: battleship
+  owner: battleship
   cluster:
     name: pg
 ---
