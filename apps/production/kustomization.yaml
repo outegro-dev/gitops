@@ -20,29 +20,29 @@ resources:
   - watchdog.yaml
 images:
   - name: outegro/landing-web
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/payments-backend
   - name: outegro/battleship-backend
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/battleship-backend
   - name: outegro/battleship-web
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/battleship-web
   - name: outegro/pay-web
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/pay-web
   - name: outegro/admin-web
-    newTag: e586c8ce8e62
+    newTag: 9f4adc42e359
     newName: ghcr.io/outegro-dev/admin-web
