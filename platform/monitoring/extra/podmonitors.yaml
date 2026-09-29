@@ -1,0 +1,71 @@
+# Scrape targets outside the chart. Every endpoint is inside the cluster
+# network only; none of these ports is behind an Ingress.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: traefik
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [kube-system]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  podMetricsEndpoints:
+    - port: metrics
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: cert-manager
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [cert-manager]
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: cert-manager
+      app.kubernetes.io/component: controller
+  podMetricsEndpoints:
+    - port: http-metrics
+---
+# CloudNativePG instance: PostgreSQL, WAL archiving and Barman Cloud backups.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: postgres
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [outegro]
+  selector:
+    matchLabels:
+      cnpg.io/cluster: pg
+      cnpg.io/podRole: instance
+  podMetricsEndpoints:
+    - port: metrics
+---
+# RabbitMQ's built-in Prometheus plugin: totals, plus per-queue depth for the
+# dead-letter and retry queues.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: rabbitmq
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [outegro]
+  selector:
+    matchLabels:
+      app: rabbitmq
+  podMetricsEndpoints:
+    - portNumber: 15692
+      path: /metrics
+    # Same pod and port: its own job keeps the two targets' `up` apart.
+    - portNumber: 15692
+      path: /metrics/detailed
+      params:
+        family: [queue_coarse_metrics]
+      relabelings:
+        - targetLabel: job
+          replacement: monitoring/rabbitmq-queues

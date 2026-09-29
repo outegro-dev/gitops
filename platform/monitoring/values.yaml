@@ -1,0 +1,106 @@
+# kube-prometheus-stack on the one 8 GB K3s node: Prometheus, node-exporter
+# and kube-state-metrics with the chart's Kubernetes rules plus ours. Nothing
+# is published; Prometheus is reached through an SSH tunnel.
+# Firing alerts reach Telegram through the watchdog, which reads Prometheus'
+# alerts API with the bot it already has. Grafana and Alertmanager are off
+# until Grafana gets a login decided by the owner (docs: observability).
+fullnameOverride: monitoring
+cleanPrometheusOperatorObjectNames: true
+
+grafana:
+  enabled: false
+alertmanager:
+  enabled: false
+
+# K3s runs these inside the k3s process; their metrics are not reachable.
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeProxy:
+  enabled: false
+kubeEtcd:
+  enabled: false
+kubeDns:
+  enabled: false
+windowsMonitoring:
+  enabled: false
+
+defaultRules:
+  rules:
+    alertmanager: false
+    etcd: false
+    kubeControllerManager: false
+    kubeSchedulerAlerting: false
+    kubeSchedulerRecording: false
+    kubeProxy: false
+    windows: false
+    # SLO burn-rate recordings are the most expensive rules; one API server
+    # on one node has no SLO to burn.
+    kubeApiserverBurnrate: false
+    kubeApiserverHistogram: false
+    kubeApiserverSlos: false
+
+prometheusOperator:
+  # Rules are checked with promtool before commit; the webhook would need
+  # certificate jobs that Argo CD re-runs on every sync.
+  admissionWebhooks:
+    enabled: false
+  tls:
+    enabled: false
+  resources:
+    requests:
+      cpu: 20m
+      memory: 64Mi
+    limits:
+      memory: 192Mi
+  prometheusConfigReloader:
+    resources:
+      requests:
+        cpu: 5m
+        memory: 16Mi
+      limits:
+        memory: 48Mi
+
+prometheus:
+  prometheusSpec:
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+    retention: 7d
+    retentionSize: 6GB
+    walCompression: true
+    # Every ServiceMonitor, PodMonitor and rule in the cluster, not only the chart's.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    scrapeConfigSelectorNilUsesHelmValues: false
+    resources:
+      requests:
+        cpu: 100m
+        memory: 384Mi
+      limits:
+        memory: 1Gi
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: [ReadWriteOnce]
+          resources:
+            requests:
+              storage: 10Gi
+
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 48Mi
+    limits:
+      memory: 128Mi
+
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 10m
+      memory: 24Mi
+    limits:
+      memory: 64Mi

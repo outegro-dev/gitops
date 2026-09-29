@@ -1,0 +1,107 @@
+# Alloy ships pod logs to Loki through the Kubernetes API: no host mounts,
+# no root. Labels stay low-cardinality (namespace, app, container, pod, level);
+# ids and request data remain inside the JSON line.
+fullnameOverride: alloy
+
+crds:
+  create: false
+
+# Reading pods and their logs is all it needs (the chart's default also
+# lists Secrets and ConfigMaps). The chart joins both lists into one role.
+rbac:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: [pods, pods/log]
+      verbs: [get, list, watch]
+  clusterRules:
+    - apiGroups: [""]
+      resources: [namespaces]
+      verbs: [get, list, watch]
+
+controller:
+  type: deployment
+  replicas: 1
+
+alloy:
+  enableReporting: false
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 473
+    runAsGroup: 473
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+  resources:
+    requests:
+      cpu: 20m
+      memory: 96Mi
+    limits:
+      memory: 256Mi
+  configMap:
+    content: |
+      discovery.kubernetes "pods" {
+        role = "pod"
+      }
+
+      discovery.relabel "pods" {
+        targets = discovery.kubernetes.pods.targets
+
+        rule {
+          source_labels = ["__meta_kubernetes_namespace"]
+          target_label  = "namespace"
+        }
+        // Our Deployments label pods `app`; charts use app.kubernetes.io/name.
+        rule {
+          source_labels = ["__meta_kubernetes_pod_label_app", "__meta_kubernetes_pod_label_app_kubernetes_io_name", "__meta_kubernetes_pod_label_k8s_app"]
+          separator     = ";"
+          regex         = "^;*([^;]+).*$"
+          target_label  = "app"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_name"]
+          target_label  = "pod"
+        }
+        rule {
+          source_labels = ["__meta_kubernetes_pod_container_name"]
+          target_label  = "container"
+        }
+      }
+
+      loki.source.kubernetes "pods" {
+        targets    = discovery.relabel.pods.output
+        forward_to = [loki.process.pods.receiver]
+      }
+
+      loki.process "pods" {
+        // Probes every 10 s from every app are noise, not history.
+        stage.drop {
+          expression = "\"url\":\"/health"
+        }
+        // Safety net behind the apps' own redaction: no bearer token or JWT
+        // reaches the log store even if a line carries one.
+        stage.replace {
+          expression = "(eyJ[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,}\\.[A-Za-z0-9_-]{8,})"
+          replace    = "<jwt>"
+        }
+        stage.replace {
+          expression = "(?i)bearer\\s+([A-Za-z0-9._~+/=-]{16,})"
+          replace    = "<token>"
+        }
+        // Pino writes a numeric level, Postgres and Go apps a word: both bounded.
+        stage.json {
+          expressions = { level = "level" }
+        }
+        stage.labels {
+          values = { level = "" }
+        }
+        forward_to = [loki.write.default.receiver]
+      }
+
+      loki.write "default" {
+        endpoint {
+          url = "http://loki:3100/loki/api/v1/push"
+        }
+      }

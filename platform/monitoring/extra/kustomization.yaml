@@ -1,0 +1,6 @@
+# Scrape targets and alert rules that are ours, not the charts'.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - podmonitors.yaml
+  - rules.yaml

@@ -1,0 +1,147 @@
+# outegro.dev alerts on top of the chart's defaults (pods, nodes, Kubernetes).
+# Thresholds are the specification's starting points (chapter 9.5); tune them
+# after a baseline. Each alert names the service, the consequence and a runbook.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: outegro
+  namespace: monitoring
+spec:
+  groups:
+    - name: outegro.node
+      rules:
+        - alert: DiskFreeLow
+          expr: |
+            node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}
+              / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} < 0.20
+          for: 15m
+          labels:
+            severity: warning
+            service: node
+          annotations:
+            summary: Less than 20% disk left on the node ({{ $value | humanizePercentage }}).
+            description: PostgreSQL, Loki and Prometheus share this disk; when it fills, writes stop.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/resource-pressure.md
+        - alert: DiskFreeCritical
+          expr: |
+            node_filesystem_avail_bytes{mountpoint="/",fstype!~"tmpfs|overlay"}
+              / node_filesystem_size_bytes{mountpoint="/",fstype!~"tmpfs|overlay"} < 0.10
+          for: 5m
+          labels:
+            severity: critical
+            service: node
+          annotations:
+            summary: Less than 10% disk left on the node ({{ $value | humanizePercentage }}).
+            description: The database and the brokers are about to stop accepting writes.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/resource-pressure.md
+        - alert: MemoryPressure
+          expr: rate(node_pressure_memory_waiting_seconds_total[5m]) > 0.10
+          for: 10m
+          labels:
+            severity: critical
+            service: node
+          annotations:
+            summary: Processes wait for memory {{ $value | humanizePercentage }} of the time.
+            description: The node is short of memory; OOM kills and slow responses follow.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/resource-pressure.md
+        - alert: ContainerOOMKilled
+          expr: |
+            increase(kube_pod_container_status_restarts_total[15m]) > 0
+            and on (namespace, pod, container)
+            kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1
+          labels:
+            severity: warning
+            service: "{{ $labels.namespace }}/{{ $labels.container }}"
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.pod }} ({{ $labels.container }}) was killed for exceeding its memory limit."
+            description: The container restarted; requests it was serving failed.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/resource-pressure.md
+
+    - name: outegro.edge
+      rules:
+        - alert: EdgeErrorRate
+          expr: |
+            sum by (service) (rate(traefik_service_requests_total{code=~"5.."}[5m]))
+              / sum by (service) (rate(traefik_service_requests_total[5m])) > 0.05
+            and sum by (service) (rate(traefik_service_requests_total[5m])) > 0.05
+          for: 10m
+          labels:
+            severity: warning
+            service: "{{ $labels.service }}"
+          annotations:
+            summary: "{{ $labels.service }} answers {{ $value | humanizePercentage }} of requests with 5xx."
+            description: Visitors see errors on this site.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/release-rollback.md
+        - alert: CertificateExpiresSoon
+          expr: certmanager_certificate_expiration_timestamp_seconds - time() < 14 * 86400
+          for: 1h
+          labels:
+            severity: warning
+            service: cert-manager
+          annotations:
+            summary: Certificate {{ $labels.namespace }}/{{ $labels.name }} expires in {{ $value | humanizeDuration }}.
+            description: Renewal is failing; Cloudflare stops reaching the origin when it expires (Full strict).
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/production.md
+
+    - name: outegro.data
+      rules:
+        - alert: PostgresDown
+          expr: cnpg_collector_up == 0 or absent(cnpg_collector_up)
+          for: 3m
+          labels:
+            severity: critical
+            service: postgres
+          annotations:
+            summary: PostgreSQL does not answer its metrics collector.
+            description: Every service that stores data is failing.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/restore.md
+        - alert: PostgresBackupStale
+          expr: time() - barman_cloud_cloudnative_pg_io_last_available_backup_timestamp > 26 * 3600
+          for: 30m
+          labels:
+            severity: critical
+            service: postgres
+          annotations:
+            summary: The last base backup in R2 is {{ $value | humanizeDuration }} old (daily is expected).
+            description: A restore would lose more than the agreed recovery point.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/restore.md
+        - alert: PostgresWalArchiveStale
+          expr: cnpg_pg_stat_archiver_seconds_since_last_archival > 1800
+          for: 10m
+          labels:
+            severity: warning
+            service: postgres
+          annotations:
+            summary: No WAL segment archived to R2 for {{ $value | humanizeDuration }}.
+            description: Point-in-time recovery would lose recent writes.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/restore.md
+        - alert: PostgresWalArchiveFailing
+          expr: increase(cnpg_pg_stat_archiver_failed_count[30m]) > 0
+          for: 30m
+          labels:
+            severity: warning
+            service: postgres
+          annotations:
+            summary: WAL archiving to R2 keeps failing.
+            description: WAL piles up on the node disk and recovery points age.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/restore.md
+        - alert: RabbitMQAlarm
+          expr: max(rabbitmq_alarms_memory_used_watermark) + max(rabbitmq_alarms_free_disk_space_watermark) > 0
+          for: 2m
+          labels:
+            severity: critical
+            service: rabbitmq
+          annotations:
+            summary: RabbitMQ raised a memory or disk alarm and blocks publishers.
+            description: Events stop flowing; outboxes grow in PostgreSQL until it clears.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/resource-pressure.md
+        - alert: DeadLetters
+          expr: sum by (queue) (rabbitmq_detailed_queue_messages{queue=~".+\\.dlq"}) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: "{{ $labels.queue }}"
+          annotations:
+            summary: "{{ $value }} message(s) in the dead-letter queue {{ $labels.queue }}."
+            description: An event failed every retry and was not processed; its effect is missing.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/notification-incident.md

@@ -1,0 +1,78 @@
+# Loki as one binary on the node's disk: 7 days of logs, then the compactor
+# deletes them. No object store, caches, gateway or canary on one node.
+fullnameOverride: loki
+deploymentMode: SingleBinary
+
+loki:
+  auth_enabled: false
+  commonConfig:
+    replication_factor: 1
+  storage:
+    type: filesystem
+  schemaConfig:
+    configs:
+      - from: "2026-09-29"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: index_
+          period: 24h
+  limits_config:
+    retention_period: 168h
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+    ingestion_rate_mb: 4
+    ingestion_burst_size_mb: 8
+    max_label_names_per_series: 12
+    volume_enabled: true
+  compactor:
+    retention_enabled: true
+    delete_request_store: filesystem
+    working_directory: /var/loki/compactor
+  pattern_ingester:
+    enabled: false
+  ui:
+    enabled: false
+
+singleBinary:
+  replicas: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+  resources:
+    requests:
+      cpu: 50m
+      memory: 192Mi
+    limits:
+      memory: 512Mi
+  extraEnv:
+    # Keeps the Go heap near the container limit instead of growing past it.
+    - name: GOMEMLIMIT
+      value: 400MiB
+
+read:
+  replicas: 0
+write:
+  replicas: 0
+backend:
+  replicas: 0
+
+gateway:
+  enabled: false
+chunksCache:
+  enabled: false
+resultsCache:
+  enabled: false
+lokiCanary:
+  enabled: false
+test:
+  enabled: false
+minio:
+  enabled: false
+
+# The rules sidecar watches ConfigMaps and Secrets cluster-wide; Loki runs no
+# rules here, so it and its cluster role are not needed.
+sidecar:
+  rules:
+    enabled: false

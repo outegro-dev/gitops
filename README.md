@@ -9,7 +9,7 @@ node/          подготовка VPS: bootstrap, SSH, firewall, K3s, Argo CD,
 bootstrap/     root.yaml — единственное приложение, которое применяется руками
 applications/  приложения Argo CD (app of apps), по одному на компонент
 platform/      кластерные компоненты: Argo CD, Sealed Secrets, cert-manager,
-               CloudNativePG, Barman Cloud, выпуск сертификатов
+               CloudNativePG, Barman Cloud, выпуск сертификатов, мониторинг
 apps/production/  сервисы outegro.dev и их данные: PostgreSQL, Valkey, RabbitMQ,
                приложения, миграции (PreSync), Sealed Secrets
 ```
@@ -50,3 +50,16 @@ ssh -L 8080:localhost:8080 outegro-prod 'sudo k3s kubectl -n argocd port-forward
 # https://localhost:8080, пользователь admin, пароль:
 ssh outegro-prod "sudo k3s kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d"
 ```
+
+## Мониторинг
+
+Prometheus (метрики узла, Kubernetes, PostgreSQL, RabbitMQ, Traefik, cert-manager; 7 дней) и Loki (логи подов, 7 дней, собирает Alloy) — приложение `monitoring`, значения в `platform/monitoring`. Наружу не опубликованы. Сработавшие правила из `platform/monitoring/extra/rules.yaml` приходят в Telegram через watchdog: он раз в 5 минут читает API алертов Prometheus.
+
+```text
+ssh -L 9090:localhost:9090 outegro-prod 'sudo k3s kubectl -n monitoring port-forward svc/monitoring-prometheus 9090'
+# http://localhost:9090 — запросы и вкладка Alerts
+ssh -L 3100:localhost:3100 outegro-prod 'sudo k3s kubectl -n monitoring port-forward svc/loki 3100'
+# логи: curl -G localhost:3100/loki/api/v1/query_range --data-urlencode 'query={namespace="outegro",app="battleship-backend"}'
+```
+
+Grafana и Alertmanager выключены, пока не выбран вход в Grafana (свой секрет администратора или вход через SSO админки).
