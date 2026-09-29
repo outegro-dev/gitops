@@ -16,14 +16,14 @@ resources:
   - watchdog.yaml
 images:
   - name: outegro/landing-web
-    newTag: ecd70327bbe0
+    newTag: 30c8835be045
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: ecd70327bbe0
+    newTag: 30c8835be045
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: ecd70327bbe0
+    newTag: 30c8835be045
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: ecd70327bbe0
+    newTag: 30c8835be045
     newName: ghcr.io/outegro-dev/notifications-backend
