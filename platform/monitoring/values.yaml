@@ -12,6 +12,27 @@ grafana:
 alertmanager:
   enabled: false
 
+# K3s is one process: its API server endpoint also carries etcd and scheduler
+# histograms, and the kubelet endpoint repeats all of it. Latency histograms no
+# rule here reads are dropped (about 100k of the first 125k series).
+kubeApiServer:
+  serviceMonitor:
+    metricRelabelings:
+      - action: drop
+        sourceLabels: [__name__]
+        regex: (apiserver_request_duration_seconds|apiserver_request_sli_duration_seconds|apiserver_request_slo_duration_seconds|apiserver_request_body_size_bytes|apiserver_response_sizes|apiserver_watch_list_duration_seconds|apiserver_watch_cache_read_wait_seconds|apiserver_watch_events_sizes|etcd_request_duration_seconds|apiserver_admission_.+_duration_seconds|apiserver_flowcontrol_.+_seconds|workqueue_(queue|work)_duration_seconds|scheduler_.+_duration_seconds)_bucket
+kubelet:
+  serviceMonitor:
+    # The kubelet's own metrics; everything else on that endpoint is the
+    # rest of the k3s process, already scraped from the API server.
+    metricRelabelings:
+      - action: keep
+        sourceLabels: [__name__]
+        regex: (kubelet_.+|process_.+|go_goroutines|volume_manager_.+|storage_operation_.+|csi_operations_.+|prober_.+|rest_client_requests_total|kubernetes_build_info)
+      - action: drop
+        sourceLabels: [__name__, le]
+        regex: (csi_operations|storage_operation_duration)_seconds_bucket;(0.25|2.5|15|25|120|600)(\.0)?
+
 # K3s runs these inside the k3s process; their metrics are not reachable.
 kubeControllerManager:
   enabled: false
@@ -37,6 +58,7 @@ defaultRules:
     windows: false
     # SLO burn-rate recordings are the most expensive rules; one API server
     # on one node has no SLO to burn.
+    kubeApiserverAvailability: false
     kubeApiserverBurnrate: false
     kubeApiserverHistogram: false
     kubeApiserverSlos: false
