@@ -17,17 +17,17 @@ resources:
   - watchdog.yaml
 images:
   - name: outegro/landing-web
-    newTag: 45c3df6f57e2
+    newTag: 50fa631b2c19
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: 45c3df6f57e2
+    newTag: 50fa631b2c19
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: 45c3df6f57e2
+    newTag: 50fa631b2c19
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: 45c3df6f57e2
+    newTag: 50fa631b2c19
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
-    newTag: 45c3df6f57e2
+    newTag: 50fa631b2c19
     newName: ghcr.io/outegro-dev/payments-backend
