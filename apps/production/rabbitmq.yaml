@@ -15,6 +15,8 @@ kind: Service
 metadata:
   name: rabbitmq
   namespace: outegro
+  labels:
+    app: rabbitmq
 spec:
   selector:
     app: rabbitmq
@@ -23,6 +25,9 @@ spec:
       port: 5672
     - name: management
       port: 15672
+    # The built-in Prometheus plugin; scraped by the monitoring app.
+    - name: prometheus
+      port: 15692
 ---
 apiVersion: apps/v1
 kind: StatefulSet

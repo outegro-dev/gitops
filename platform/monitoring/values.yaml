@@ -40,6 +40,10 @@ defaultRules:
     kubeApiserverBurnrate: false
     kubeApiserverHistogram: false
     kubeApiserverSlos: false
+  disabled:
+    # There is no Alertmanager on purpose (see the header).
+    PrometheusNotConnectedToAlertmanagers: true
+    PrometheusErrorSendingAlertsToAnyAlertmanager: true
 
 prometheusOperator:
   # Rules are checked with promtool before commit; the webhook would need

@@ -46,9 +46,10 @@ spec:
     - port: metrics
 ---
 # RabbitMQ's built-in Prometheus plugin: totals, plus per-queue depth for the
-# dead-letter and retry queues.
+# dead-letter and retry queues. Through the Service: the pod does not declare
+# the plugin's port, so pod discovery would not find it.
 apiVersion: monitoring.coreos.com/v1
-kind: PodMonitor
+kind: ServiceMonitor
 metadata:
   name: rabbitmq
   namespace: monitoring
@@ -58,14 +59,14 @@ spec:
   selector:
     matchLabels:
       app: rabbitmq
-  podMetricsEndpoints:
-    - portNumber: 15692
+  endpoints:
+    - port: prometheus
       path: /metrics
     # Same pod and port: its own job keeps the two targets' `up` apart.
-    - portNumber: 15692
+    - port: prometheus
       path: /metrics/detailed
       params:
         family: [queue_coarse_metrics]
       relabelings:
         - targetLabel: job
-          replacement: monitoring/rabbitmq-queues
+          replacement: rabbitmq-queues
