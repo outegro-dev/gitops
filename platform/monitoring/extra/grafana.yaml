@@ -1,0 +1,82 @@
+# Grafana at admin.outegro.dev/grafana, behind the admin console's sign-in.
+# Order matters: first drop any identity headers the client sent, then ask
+# admin-web (ForwardAuth). admin-web answers 200 with X-WEBAUTH-* for an
+# operator allowed to see monitoring, a redirect to sign in, or 403; only its
+# answer reaches Grafana. Traefik picks the certificate for the host by SNI.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: grafana-strip-identity
+  namespace: monitoring
+spec:
+  headers:
+    customRequestHeaders:
+      X-WEBAUTH-USER: ""
+      X-WEBAUTH-EMAIL: ""
+      X-WEBAUTH-NAME: ""
+      X-WEBAUTH-ROLE: ""
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: grafana-auth
+  namespace: monitoring
+spec:
+  forwardAuth:
+    address: http://admin-web.outegro.svc.cluster.local:3004/api/grafana/auth
+    trustForwardHeader: false
+    authResponseHeaders:
+      - X-WEBAUTH-USER
+      - X-WEBAUTH-EMAIL
+      - X-WEBAUTH-NAME
+      - X-WEBAUTH-ROLE
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: monitoring-grafana-strip-identity@kubernetescrd,monitoring-grafana-auth@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - admin.outegro.dev
+  rules:
+    - host: admin.outegro.dev
+      http:
+        paths:
+          - path: /grafana
+            pathType: Prefix
+            backend:
+              service:
+                name: monitoring-grafana
+                port:
+                  number: 80
+---
+# The auth proxy trusts X-WEBAUTH-* headers, so only Traefik (after the
+# middlewares above) and Prometheus in this namespace may reach Grafana. A pod
+# elsewhere in the cluster cannot claim to be an operator.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: traefik
+        - podSelector: {}
+      ports:
+        - port: 3000

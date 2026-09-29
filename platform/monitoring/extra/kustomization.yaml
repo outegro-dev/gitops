@@ -4,3 +4,4 @@ kind: Kustomization
 resources:
   - targets.yaml
   - rules.yaml
+  - grafana.yaml

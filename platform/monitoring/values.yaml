@@ -1,16 +1,77 @@
-# kube-prometheus-stack on the one 8 GB K3s node: Prometheus, node-exporter
-# and kube-state-metrics with the chart's Kubernetes rules plus ours. Nothing
-# is published; Prometheus is reached through an SSH tunnel.
+# kube-prometheus-stack on the one 8 GB K3s node: Prometheus, node-exporter,
+# kube-state-metrics and Grafana, with the chart's Kubernetes rules plus ours.
+# Prometheus is not published (SSH tunnel). Grafana is served at
+# admin.outegro.dev/grafana behind the admin console's sign-in: Traefik asks
+# admin-web first (ForwardAuth, extra/grafana.yaml) and passes the operator's
+# identity and role in X-WEBAUTH-* headers, which Grafana's auth proxy trusts
+# only from Traefik (NetworkPolicy). Grafana has no local users or passwords.
 # Firing alerts reach Telegram through the watchdog, which reads Prometheus'
-# alerts API with the bot it already has. Grafana and Alertmanager are off
-# until Grafana gets a login decided by the owner (docs: observability).
+# alerts API with the bot it already has; Alertmanager stays off.
 fullnameOverride: monitoring
 cleanPrometheusOperatorObjectNames: true
 
-grafana:
-  enabled: false
 alertmanager:
   enabled: false
+
+grafana:
+  enabled: true
+  testFramework:
+    enabled: false
+  env:
+    # Sign-in is only through the auth proxy; no built-in admin account.
+    GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
+  persistence:
+    enabled: true
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 20m
+      memory: 128Mi
+    limits:
+      memory: 320Mi
+  sidecar:
+    resources:
+      requests:
+        cpu: 5m
+        memory: 48Mi
+      limits:
+        memory: 128Mi
+  additionalDataSources:
+    - name: Loki
+      uid: loki
+      type: loki
+      access: proxy
+      url: http://loki:3100
+      jsonData:
+        maxLines: 2000
+  grafana.ini:
+    server:
+      root_url: https://admin.outegro.dev/grafana/
+      serve_from_sub_path: true
+    auth:
+      disable_login_form: true
+      disable_signout_menu: true
+    auth.basic:
+      enabled: false
+    auth.anonymous:
+      enabled: false
+    auth.proxy:
+      enabled: true
+      header_name: X-WEBAUTH-USER
+      header_property: username
+      headers: "Email:X-WEBAUTH-EMAIL Name:X-WEBAUTH-NAME Role:X-WEBAUTH-ROLE"
+      auto_sign_up: true
+      enable_login_token: false
+    users:
+      allow_sign_up: false
+      allow_org_create: false
+      auto_assign_org_role: Viewer
+    analytics:
+      reporting_enabled: false
+      check_for_updates: false
+      check_for_plugin_updates: false
+    news:
+      news_feed_enabled: false
 
 # K3s is one process: its API server endpoint also carries etcd and scheduler
 # histograms, and the kubelet endpoint repeats all of it. Latency histograms no
