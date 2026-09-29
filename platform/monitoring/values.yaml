@@ -17,6 +17,9 @@ grafana:
   enabled: true
   testFramework:
     enabled: false
+  # Grafana serves everything under /grafana, its metrics included.
+  serviceMonitor:
+    path: /grafana/metrics
   env:
     # Sign-in is only through the auth proxy; no built-in admin account.
     GF_SECURITY_DISABLE_INITIAL_ADMIN_CREATION: "true"
