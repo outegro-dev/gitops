@@ -105,15 +105,18 @@ spec:
             summary: The last base backup in R2 is {{ $value | humanizeDuration }} old (daily is expected).
             description: A restore would lose more than the agreed recovery point.
             runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/restore.md
-        - alert: PostgresWalArchiveStale
-          expr: cnpg_pg_stat_archiver_seconds_since_last_archival > 1800
-          for: 10m
+        # Time since the last archival is no signal: an idle database writes
+        # no WAL, so nothing needs archiving. Segments that are complete but
+        # still waiting for R2 are (archive_timeout is 5 minutes).
+        - alert: PostgresWalArchiveBehind
+          expr: max(cnpg_collector_pg_wal_archive_status{value="ready"}) > 3
+          for: 15m
           labels:
             severity: warning
             service: postgres
           annotations:
-            summary: No WAL segment archived to R2 for {{ $value | humanizeDuration }}.
-            description: Point-in-time recovery would lose recent writes.
+            summary: "{{ $value }} WAL segments are waiting to be archived to R2."
+            description: Point-in-time recovery would lose the writes in them, and they fill the node disk.
             runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/restore.md
         - alert: PostgresWalArchiveFailing
           expr: increase(cnpg_pg_stat_archiver_failed_count[30m]) > 0
