@@ -14,7 +14,8 @@ data:
   EMAIL_FROM: Nick Lukashik <no-reply@outegro.dev>
   OAUTH_CLIENTS: >-
     [{"id":"pay-web","name":"Payments","redirectUris":["https://pay.outegro.dev/auth/callback"]},
-    {"id":"admin-web","name":"Admin","redirectUris":["https://admin.outegro.dev/auth/callback"]}]
+    {"id":"admin-web","name":"Admin","redirectUris":["https://admin.outegro.dev/auth/callback"]},
+    {"id":"battleship-web","name":"Battleship","redirectUris":["https://battleship.outegro.dev/auth/callback"]}]
 ---
 apiVersion: apps/v1
 kind: Deployment
