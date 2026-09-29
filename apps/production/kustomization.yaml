@@ -1,0 +1,23 @@
+# Everything in the outegro namespace. CI changes only the images block:
+# one commit here is one production release, one revert is one rollback.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: outegro
+resources:
+  - namespace.yaml
+  - secrets
+  - certificate.yaml
+  - postgres.yaml
+  - valkey.yaml
+  - rabbitmq.yaml
+  - migrate.yaml
+  - apps.yaml
+images:
+  - name: outegro/landing-web
+    newTag: 42e768099635
+  - name: outegro/id-web
+    newTag: 42e768099635
+  - name: outegro/auth-backend
+    newTag: 42e768099635
+  - name: outegro/notifications-backend
+    newTag: 42e768099635

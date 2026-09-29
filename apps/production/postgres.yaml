@@ -1,0 +1,97 @@
+# One PostgreSQL 18 instance (CloudNativePG), a database and role per service,
+# WAL archive and daily base backups in Cloudflare R2 (Barman Cloud plugin).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: r2
+  namespace: outegro
+spec:
+  retentionPolicy: "30d"
+  configuration:
+    destinationPath: s3://outegro-dev-backups/postgres
+    endpointURL: https://878d418cde10b8c22ffde6b7cfdaa8cd.r2.cloudflarestorage.com
+    s3Credentials:
+      accessKeyId:
+        name: r2-backups
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: r2-backups
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: gzip
+    data:
+      compression: gzip
+  instanceSidecarConfiguration:
+    # R2 rejects the checksums newer boto3 sends by default (plugin docs, issue #393).
+    env:
+      - name: AWS_REQUEST_CHECKSUM_CALCULATION
+        value: when_required
+      - name: AWS_RESPONSE_CHECKSUM_VALIDATION
+        value: when_required
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: pg
+  namespace: outegro
+spec:
+  instances: 1
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.6-202609281634-standard-trixie
+  storage:
+    size: 20Gi
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 1Gi
+  postgresql:
+    parameters:
+      shared_buffers: 256MB
+      max_connections: "100"
+      # WAL reaches R2 at least every 5 minutes (RPO target 15).
+      archive_timeout: 5min
+  bootstrap:
+    initdb:
+      database: auth
+      owner: auth
+      secret:
+        name: pg-auth
+  managed:
+    roles:
+      - name: notifications
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-notifications
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: r2
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: notifications
+  namespace: outegro
+spec:
+  name: notifications
+  owner: notifications
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: pg-daily
+  namespace: outegro
+spec:
+  schedule: "0 0 3 * * *"
+  immediate: true
+  backupOwnerReference: self
+  cluster:
+    name: pg
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

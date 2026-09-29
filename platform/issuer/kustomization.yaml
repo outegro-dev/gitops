@@ -1,0 +1,6 @@
+# Let's Encrypt issuer and the Cloudflare token it uses (sealed).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - cluster-issuer.yaml
+  - cloudflare-api-token.yaml

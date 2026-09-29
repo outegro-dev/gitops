@@ -1,0 +1,18 @@
+# Origin certificate behind Cloudflare (SSL mode Full (strict)).
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: outegro-dev
+  namespace: outegro
+spec:
+  secretName: outegro-dev-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  dnsNames:
+    - outegro.dev
+    - "*.outegro.dev"
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+    rotationPolicy: Always
