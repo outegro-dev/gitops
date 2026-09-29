@@ -145,3 +145,88 @@ spec:
             summary: "{{ $value }} message(s) in the dead-letter queue {{ $labels.queue }}."
             description: An event failed every retry and was not processed; its effect is missing.
             runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/notification-incident.md
+
+    - name: outegro.services
+      rules:
+        - alert: OutboxStuck
+          expr: max by (service) (outbox_oldest_pending_age_seconds) > 300
+          for: 5m
+          labels:
+            severity: warning
+            service: "{{ $labels.service }}"
+          annotations:
+            summary: "{{ $labels.service }} has not published an event for {{ $value | humanizeDuration }}."
+            description: Committed facts do not reach other services (access, messages, projections).
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/resource-pressure.md
+        - alert: ServiceErrors
+          expr: |
+            sum by (service) (rate(http_server_requests_total{status_class="5xx"}[5m]))
+              / sum by (service) (rate(http_server_requests_total[5m])) > 0.05
+            and sum by (service) (rate(http_server_requests_total[5m])) > 0.02
+          for: 10m
+          labels:
+            severity: warning
+            service: "{{ $labels.service }}"
+          annotations:
+            summary: "{{ $labels.service }} answers {{ $value | humanizePercentage }} of requests with 5xx."
+            description: Users of this service see errors.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/release-rollback.md
+        - alert: EventsDeadLettered
+          expr: increase(messaging_events_consumed_total{outcome="dead_lettered"}[15m]) > 0
+          labels:
+            severity: warning
+            service: "{{ $labels.service }}"
+          annotations:
+            summary: "{{ $labels.service }} dead-lettered events from {{ $labels.queue }}."
+            description: An event failed every retry; its effect is missing until it is replayed.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/notification-incident.md
+        - alert: PaymentWebhooksStuck
+          expr: max(payments_provider_event_oldest_unprocessed_age_seconds{status=~"received|failed"}) > 300
+          for: 5m
+          labels:
+            severity: critical
+            service: payments-backend
+          annotations:
+            summary: A Lava webhook accepted {{ $value | humanizeDuration }} ago is still not applied.
+            description: A buyer paid and may not have access yet.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/payment-incident.md
+        - alert: PaymentWebhooksRejected
+          expr: sum(increase(payments_webhooks_total{outcome=~"rejected_auth|rejected_schema|error"}[15m])) > 0
+          labels:
+            severity: warning
+            service: payments-backend
+          annotations:
+            summary: Lava webhooks are being rejected or failing to store.
+            description: Payments may not be recorded; Lava retries only for a while.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/payment-incident.md
+        - alert: PaymentReconciliationStale
+          expr: |
+            payments_reconciliation_last_success_timestamp_seconds > 0
+            and time() - payments_reconciliation_last_success_timestamp_seconds > 900
+          for: 5m
+          labels:
+            severity: warning
+            service: payments-backend
+          annotations:
+            summary: Payment reconciliation has not completed for {{ $value | humanizeDuration }}.
+            description: Lost Lava answers and missed webhooks are not being caught up.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/payment-incident.md
+        - alert: LoginCodesFailing
+          expr: sum(increase(identity_login_codes_total{result="failed"}[10m])) > 0
+          labels:
+            severity: critical
+            service: auth-backend
+          annotations:
+            summary: Sign-in codes are not being delivered.
+            description: People cannot sign in with email.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/notification-incident.md
+        - alert: EmailQueueStuck
+          expr: max(notifications_delivery_oldest_queued_age_seconds{channel="email"}) > 900
+          for: 5m
+          labels:
+            severity: warning
+            service: notifications-backend
+          annotations:
+            summary: An email has waited {{ $value | humanizeDuration }} to be sent.
+            description: Messages arrive late (or the channel is paused on purpose in the admin console).
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/notification-incident.md

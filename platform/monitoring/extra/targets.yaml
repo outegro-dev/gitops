@@ -70,3 +70,22 @@ spec:
       relabelings:
         - targetLabel: job
           replacement: rabbitmq-queues
+---
+# Our NestJS services: HTTP by route template, outbox and consumer health,
+# and domain counters (docs/06-operations/observability.md in the platform
+# repo). Their listener is on its own port, never on the app's.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: services
+  namespace: monitoring
+spec:
+  namespaceSelector:
+    matchNames: [outegro]
+  selector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values: [auth-backend, notifications-backend, payments-backend, battleship-backend]
+  podMetricsEndpoints:
+    - port: metrics

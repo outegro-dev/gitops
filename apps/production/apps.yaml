@@ -231,6 +231,9 @@ spec:
           ports:
             - name: http
               containerPort: 4001
+            # Prometheus only; no Service or Ingress points at it.
+            - name: metrics
+              containerPort: 9464
           readinessProbe:
             httpGet:
               path: /health/deep
@@ -343,6 +346,9 @@ spec:
           ports:
             - name: http
               containerPort: 4002
+            # Prometheus only; no Service or Ingress points at it.
+            - name: metrics
+              containerPort: 9464
           readinessProbe:
             httpGet:
               path: /health/deep
