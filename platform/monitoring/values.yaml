@@ -66,6 +66,8 @@ grafana:
       headers: "Email:X-WEBAUTH-EMAIL Name:X-WEBAUTH-NAME Role:X-WEBAUTH-ROLE"
       auto_sign_up: true
       enable_login_token: false
+      # admin-web sends non-ASCII names quoted-printable.
+      headers_encoded: true
     users:
       allow_sign_up: false
       allow_org_create: false
