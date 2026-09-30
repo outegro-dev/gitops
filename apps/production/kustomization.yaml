@@ -27,7 +27,7 @@ images:
     newTag: aab08a061445
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: aab08a061445
+    newTag: c4e3e2f5e759
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
     newTag: aab08a061445
