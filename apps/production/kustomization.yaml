@@ -21,29 +21,29 @@ resources:
   - network-policies.yaml
 images:
   - name: outegro/landing-web
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/payments-backend
   - name: outegro/battleship-backend
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/battleship-backend
   - name: outegro/battleship-web
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/battleship-web
   - name: outegro/pay-web
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/pay-web
   - name: outegro/admin-web
-    newTag: 34b0f5e0719b
+    newTag: aab08a061445
     newName: ghcr.io/outegro-dev/admin-web
