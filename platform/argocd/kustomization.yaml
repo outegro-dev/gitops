@@ -49,3 +49,15 @@ patches:
           metadata:
             annotations:
               outegro.dev/reconciliation: 60s-10s
+  # The repo server caches a branch's resolved revision for the same
+  # interval (ARGOCD_RECONCILIATION_TIMEOUT from argocd-cm), read at start.
+  - patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: argocd-repo-server
+      spec:
+        template:
+          metadata:
+            annotations:
+              outegro.dev/reconciliation: 60s
