@@ -27,3 +27,25 @@ patches:
       - op: replace
         path: /spec/replicas
         value: 0
+  # Look at git every minute instead of every two (plus up to a minute of
+  # jitter): a CI release reaches the cluster within about a minute. Merge
+  # patches keep the upstream keys. The controller reads these at start, so
+  # its pod template carries the value.
+  - patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: argocd-cm
+      data:
+        timeout.reconciliation: 60s
+        timeout.reconciliation.jitter: 10s
+  - patch: |-
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: argocd-application-controller
+      spec:
+        template:
+          metadata:
+            annotations:
+              outegro.dev/reconciliation: 60s-10s
