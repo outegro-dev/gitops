@@ -4,11 +4,13 @@
 # hermes-agent v2026.9.24 (docs: managed-scope, telegram, tools, providers).
 
 # H-05 no spend: only the ChatGPT subscription route (OpenAI Codex, OAuth).
+# gpt-6.1-sol is newer than v2026.9.24's tables (it gets the gpt-5.5 effort
+# set, no `max`); the owner's Codex catalogue lists it first (01.10.2026).
 # No fallback providers, and every auxiliary task either pinned to the same
 # route or off.
 model:
   provider: openai-codex
-  default: gpt-5.6-sol
+  default: gpt-6.1-sol
   base_url: ""
   openai_runtime: auto
 fallback_providers: []
@@ -16,9 +18,9 @@ fallback_model: []
 delegation:
   fallback_providers: []
 auxiliary:
-  vision: {provider: openai-codex, model: gpt-5.6-sol, fallback_chain: []}
-  compression: {provider: openai-codex, model: gpt-5.6-sol, fallback_chain: []}
-  approval: {provider: openai-codex, model: gpt-5.6-sol, fallback_chain: []}
+  vision: {provider: openai-codex, model: gpt-6.1-sol, fallback_chain: []}
+  compression: {provider: openai-codex, model: gpt-6.1-sol, fallback_chain: []}
+  approval: {provider: openai-codex, model: gpt-6.1-sol, fallback_chain: []}
   title_generation: {enabled: false, model_upgrade_enabled: false}
   background_review: {enabled: false}
 curator:
