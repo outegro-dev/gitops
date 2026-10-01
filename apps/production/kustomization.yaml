@@ -24,7 +24,7 @@ images:
     newTag: 1a32250e1780
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: 1a32250e1780
+    newTag: fcb6d1b04f02
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
     newTag: 1a32250e1780
