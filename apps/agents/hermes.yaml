@@ -27,6 +27,8 @@ spec:
       labels:
         app: hermes
     spec:
+      # Below every platform workload: evicted first when memory runs short (OPS-08).
+      priorityClassName: outegro-agents
       containers:
         - name: hermes
           image: nousresearch/hermes-agent

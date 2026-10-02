@@ -1,0 +1,25 @@
+# OPS-08 TC-OPS-08-02: under memory pressure the kubelet evicts pods that
+# use more than they requested, lowest priority first. The platform's own
+# workloads outrank everything else on the node; Hermes ranks below all of
+# it, so an agent that grows is the first to go, never payments or the
+# database. Cluster-scoped; created before the pods that name them.
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: outegro-core
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+value: 100000
+globalDefault: false
+description: outegro.dev services, database, broker and cache.
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: outegro-agents
+  annotations:
+    argocd.argoproj.io/sync-wave: "-10"
+value: -1000
+globalDefault: false
+preemptionPolicy: Never
+description: Hermes and other agents; evicted before anything else.

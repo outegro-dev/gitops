@@ -36,6 +36,8 @@ metadata:
   namespace: outegro
 spec:
   instances: 1
+  # Outranks every other pod on the node under memory pressure (OPS-08).
+  priorityClassName: outegro-core
   imageName: ghcr.io/cloudnative-pg/postgresql:18.6-202609281634-standard-trixie
   storage:
     size: 20Gi

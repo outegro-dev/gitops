@@ -5,6 +5,7 @@ kind: Kustomization
 namespace: outegro
 resources:
   - namespace.yaml
+  - priority-classes.yaml
   - secrets
   - certificate.yaml
   - postgres.yaml
@@ -47,3 +48,17 @@ images:
   - name: outegro/admin-web
     newTag: 23bb73c653aa@sha256:a47773879856a1179d38eb7c8fa717803b0da4c5c777dfb88ab509f8224932c6
     newName: ghcr.io/outegro-dev/admin-web
+# Every service and stateful workload here runs as outegro-core (OPS-08).
+patches:
+  - target:
+      kind: Deployment
+    patch: |-
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: outegro-core
+  - target:
+      kind: StatefulSet
+    patch: |-
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: outegro-core
