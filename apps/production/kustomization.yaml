@@ -28,16 +28,16 @@ images:
     newTag: 8fa0d0c7a476@sha256:39d2323fc973019d3d0c2bf4cbf24451a0de108b3d6339daf247a24e4affbfd9
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: 8fa0d0c7a476@sha256:ab1a24e5c4949216a320bfe25914920483cdfc66c5a3e8a52c5eb6071a764762
+    newTag: 9923e50b5fa6@sha256:7800b333ccecbce23f6de35dc234a15a00af6063f596e77c0f0f61aa3a5302cd
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: 8fa0d0c7a476@sha256:799e2f50f8610acb95476d02033434c435f2827e000595b26b505e1d9609fcbb
+    newTag: 9923e50b5fa6@sha256:0bb928c731a928b3497edc542aa95117696d26709c537668608d7da2774d1edf
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
-    newTag: 8fa0d0c7a476@sha256:287a493d031222e1b742ff837083f35d49f7c35e5c14d0247e0dcf015f0601d7
+    newTag: 9923e50b5fa6@sha256:78946720d37fba86e4bc5ff6231f90f41946943d4cb8c97da7a79da4cd715f92
     newName: ghcr.io/outegro-dev/payments-backend
   - name: outegro/battleship-backend
-    newTag: 8fa0d0c7a476@sha256:812d74531584eab3c23c965151eb544b8609ff4d23fea00e8e3941409f3ec02f
+    newTag: 9923e50b5fa6@sha256:8fc84bf0a3535e10a819f0d1ca5b7cd98127248ced5e3af12b75cdfd4ae7cf0f
     newName: ghcr.io/outegro-dev/battleship-backend
   - name: outegro/battleship-web
     newTag: 8fa0d0c7a476@sha256:b0697b5601b47d1fb1e35d6372eb2c5deb6d855ee906f08546ed69d066ae86d1
