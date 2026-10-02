@@ -22,31 +22,31 @@ resources:
   - network-policies.yaml
 images:
   - name: outegro/landing-web
-    newTag: 23bb73c653aa@sha256:591e0f0e11f99ab2c2bb164fadf9c94be311ae6d61a6f790c9d74f9f0cee6efe
+    newTag: 3f91685b1a63@sha256:57c19c32927e46449b01b50bebbe0ae48fdc75c2fe85b63d93417fd039613458
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: 23bb73c653aa@sha256:60081c5a95978d0442edd4895f4ec470f373aa4338aa0ee728630f67eea522c2
+    newTag: 3f91685b1a63@sha256:d9a585e190800fb64d68398c033e26a2e82eff7d3fadfcb980bb490389d03d23
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: 23bb73c653aa@sha256:b92f1f574b3fa83c5de3919cfd77973e45110edf6f552094bb31cf930f30f5f0
+    newTag: 3f91685b1a63@sha256:2c1b8281d0d265ac0b54c20623efe9f88119bea7c7f381e13e3cfd54dd475dec
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: 23bb73c653aa@sha256:eadc712d9854699899f33525f03dedd0897ca4db9bf08b1a92637f1f5ee5a94e
+    newTag: 3f91685b1a63@sha256:a0774931962050cc58048561312ccb157becedf200cbdceec3d3cc1e1fd211bb
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
-    newTag: 23bb73c653aa@sha256:385ae5e320a439f7967b41fb43188c94fd0f5344f723328f2c5ee5f2848789b5
+    newTag: 3f91685b1a63@sha256:5394aa59b589244a476c5d5c259bdbdee773325b111553f9e37a1a5b281ddafd
     newName: ghcr.io/outegro-dev/payments-backend
   - name: outegro/battleship-backend
-    newTag: 23bb73c653aa@sha256:be7ea42ac00719a594d6bf76547ae032adb0f29f8de8f79b93e4c74da69d1409
+    newTag: 3f91685b1a63@sha256:054b2c87da42347e00899d5e36d8f3009ce97424e5cfd967a3d1f7c6aafd91f2
     newName: ghcr.io/outegro-dev/battleship-backend
   - name: outegro/battleship-web
-    newTag: 23bb73c653aa@sha256:0d571d778b405bd9dc74813d7d5ef977bf92f36f48ef5a0a7e80bea3e728f80f
+    newTag: 3f91685b1a63@sha256:cf9342215973ecacea1445b772dc0891e12bc96586e3337c5bae3afb276236fe
     newName: ghcr.io/outegro-dev/battleship-web
   - name: outegro/pay-web
-    newTag: 23bb73c653aa@sha256:868823e256937d3f944cc68e3d4f3b25af2c8152791d32f72ef405c42f0c5adc
+    newTag: 3f91685b1a63@sha256:9287d6dc6cd49834d29f6e140e65511e4d9391819b9ae3a7065ee0cc3ed1d699
     newName: ghcr.io/outegro-dev/pay-web
   - name: outegro/admin-web
-    newTag: 23bb73c653aa@sha256:a47773879856a1179d38eb7c8fa717803b0da4c5c777dfb88ab509f8224932c6
+    newTag: 3f91685b1a63@sha256:a61b72d5f7f98b2eb58c1a649e87a814bd987ff4543e834a02ded6a2b5e9f624
     newName: ghcr.io/outegro-dev/admin-web
 # Every service and stateful workload here runs as outegro-core (OPS-08).
 patches:
