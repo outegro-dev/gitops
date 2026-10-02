@@ -21,29 +21,29 @@ resources:
   - network-policies.yaml
 images:
   - name: outegro/landing-web
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:591e0f0e11f99ab2c2bb164fadf9c94be311ae6d61a6f790c9d74f9f0cee6efe
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:60081c5a95978d0442edd4895f4ec470f373aa4338aa0ee728630f67eea522c2
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:b92f1f574b3fa83c5de3919cfd77973e45110edf6f552094bb31cf930f30f5f0
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:eadc712d9854699899f33525f03dedd0897ca4db9bf08b1a92637f1f5ee5a94e
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:385ae5e320a439f7967b41fb43188c94fd0f5344f723328f2c5ee5f2848789b5
     newName: ghcr.io/outegro-dev/payments-backend
   - name: outegro/battleship-backend
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:be7ea42ac00719a594d6bf76547ae032adb0f29f8de8f79b93e4c74da69d1409
     newName: ghcr.io/outegro-dev/battleship-backend
   - name: outegro/battleship-web
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:0d571d778b405bd9dc74813d7d5ef977bf92f36f48ef5a0a7e80bea3e728f80f
     newName: ghcr.io/outegro-dev/battleship-web
   - name: outegro/pay-web
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:868823e256937d3f944cc68e3d4f3b25af2c8152791d32f72ef405c42f0c5adc
     newName: ghcr.io/outegro-dev/pay-web
   - name: outegro/admin-web
-    newTag: a6a794ea2f75
+    newTag: 23bb73c653aa@sha256:a47773879856a1179d38eb7c8fa717803b0da4c5c777dfb88ab509f8224932c6
     newName: ghcr.io/outegro-dev/admin-web
