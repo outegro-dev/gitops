@@ -5,6 +5,16 @@
 set -euo pipefail
 K3S_VERSION="v1.36.4+k3s1"
 
+# inotify: the default 128 instances per user runs out on a K3s node (K3s
+# itself holds ~60). The kubelet then cannot follow container logs, and
+# Alloy ships "failed to create fsnotify watcher: too many open files"
+# instead of the pods' lines (seen 01.10.2026). Usual Kubernetes values.
+cat > /etc/sysctl.d/90-inotify.conf <<'EOF'
+fs.inotify.max_user_instances = 8192
+fs.inotify.max_user_watches = 524288
+EOF
+sysctl --load /etc/sysctl.d/90-inotify.conf
+
 install -d -m 755 /etc/rancher/k3s /var/lib/rancher/k3s/server/manifests
 cat > /etc/rancher/k3s/config.yaml <<'EOF'
 node-name: outegro-prod
