@@ -50,8 +50,34 @@ spec:
         runAsUser: 100
         runAsGroup: 101
         fsGroup: 101
+        # Without this the kubelet re-applies fsGroup to every file on each
+        # mount, the Erlang cookie becomes group-readable and RabbitMQ refuses
+        # to start ("must be accessible by owner only"): every restart after
+        # the first failed (02.10.2026).
+        fsGroupChangePolicy: OnRootMismatch
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        # Repairs a cookie whose mode an earlier mount already changed.
+        - name: cookie-mode
+          image: rabbitmq:4.3-management-alpine
+          command:
+            - sh
+            - -c
+            - "[ ! -f /var/lib/rabbitmq/.erlang.cookie ] || chmod 400 /var/lib/rabbitmq/.erlang.cookie"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 32Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
       containers:
         - name: rabbitmq
           image: rabbitmq:4.3-management-alpine
