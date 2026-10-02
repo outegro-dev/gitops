@@ -46,6 +46,12 @@ spec:
           env:
             - name: NODE_OPTIONS
               value: --max-old-space-size=192
+            # The heap is capped above, yet the pod reached 504 of 512 MiB:
+            # the rest is native memory of sharp/libvips, which glibc spreads
+            # over one malloc arena per thread and rarely returns. Two arenas
+            # (sharp's advice) with one libvips thread (next.config) bound it.
+            - name: MALLOC_ARENA_MAX
+              value: "2"
           ports:
             - name: http
               containerPort: 3000
