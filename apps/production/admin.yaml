@@ -36,10 +36,8 @@ spec:
               value: http://payments-backend:4003
             - name: BATTLESHIP_API_URL
               value: http://battleship-backend:4004
-            # Education, runbook step 3 (with edu.yaml in kustomization.yaml); until
-            # then the console shows the section as not connected.
-            # - name: EDU_API_URL
-            #   value: http://edu-backend:4005
+            - name: EDU_API_URL
+              value: http://edu-backend:4005
             - name: ID_URL
               value: https://id.outegro.dev
             - name: APP_URL

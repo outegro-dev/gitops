@@ -15,11 +15,9 @@ resources:
   - apps.yaml
   - payments.yaml
   - battleship.yaml
-  # Education, runbook step 3: uncomment once CI has written the edu images
-  # below, the pg-edu secret and the edu database exist (step 1) and the
-  # Cloudflare record for edu.outegro.dev is in place. Its PreSync migration
-  # would otherwise fail and hold every rollout of this app.
-  # - edu.yaml
+  # Education (edu.outegro.dev). Its PreSync migration needs the edu images
+  # below, the pg-edu secret and the edu database (rollout step 1).
+  - edu.yaml
   - pay.yaml
   - admin.yaml
   - hooks.yaml
