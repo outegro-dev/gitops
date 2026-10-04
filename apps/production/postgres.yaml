@@ -76,6 +76,11 @@ spec:
         login: true
         passwordSecret:
           name: pg-battleship
+      - name: edu
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-edu
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -112,6 +117,17 @@ metadata:
 spec:
   name: battleship
   owner: battleship
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: edu
+  namespace: outegro
+spec:
+  name: edu
+  owner: edu
   cluster:
     name: pg
 ---

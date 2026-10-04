@@ -53,6 +53,10 @@ fi
 if has LAVA_API_KEY; then
   put "$NS" lava --from-literal=LAVA_API_KEY="${in[LAVA_API_KEY]}"
 fi
+# Education's assistant (ADR-010): the MiniMax key, read only by edu-backend.
+if has MINIMAX_API_KEY; then
+  put "$NS" edu-assist --from-literal=MINIMAX_API_KEY="${in[MINIMAX_API_KEY]}"
+fi
 
 # Generated once, never rotated by a re-run.
 once "$NS" platform-internal --from-literal=INTERNAL_API_TOKEN="$(hex 32)"
@@ -67,6 +71,8 @@ once "$NS" pg-payments --type=kubernetes.io/basic-auth \
   --from-literal=username=payments --from-literal=password="$(hex 24)"
 once "$NS" pg-battleship --type=kubernetes.io/basic-auth \
   --from-literal=username=battleship --from-literal=password="$(hex 24)"
+once "$NS" pg-edu --type=kubernetes.io/basic-auth \
+  --from-literal=username=edu --from-literal=password="$(hex 24)"
 once "$NS" valkey --from-literal=password="$(hex 32)"
 once "$NS" rabbitmq --from-literal=username=outegro --from-literal=password="$(hex 32)"
 # Telegram echoes it on every webhook call (X-Telegram-Bot-Api-Secret-Token).

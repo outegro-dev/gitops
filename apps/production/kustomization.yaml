@@ -15,6 +15,11 @@ resources:
   - apps.yaml
   - payments.yaml
   - battleship.yaml
+  # Education, runbook step 3: uncomment once CI has written the edu images
+  # below, the pg-edu secret and the edu database exist (step 1) and the
+  # Cloudflare record for edu.outegro.dev is in place. Its PreSync migration
+  # would otherwise fail and hold every rollout of this app.
+  # - edu.yaml
   - pay.yaml
   - admin.yaml
   - hooks.yaml
@@ -48,6 +53,14 @@ images:
   - name: outegro/admin-web
     newTag: 8fa0d0c7a476@sha256:31b54917734e834e952f397302f6bebce2691568551c14b06d746421163d71a8
     newName: ghcr.io/outegro-dev/admin-web
+  # Education: CI writes <tag>@sha256 here on the first build that includes
+  # the apps; until then nothing references these images.
+  - name: outegro/edu-backend
+    newTag: pending
+    newName: ghcr.io/outegro-dev/edu-backend
+  - name: outegro/edu-web
+    newTag: pending
+    newName: ghcr.io/outegro-dev/edu-web
 # Every service and stateful workload here runs as outegro-core (OPS-08).
 patches:
   - target:

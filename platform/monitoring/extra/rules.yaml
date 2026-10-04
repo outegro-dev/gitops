@@ -233,6 +233,31 @@ spec:
             summary: Sign-in codes are not being delivered.
             description: People cannot sign in with email.
             runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/notification-incident.md
+        - alert: EduAssistantFailing
+          # Answers that ended in a provider error (before or during the
+          # stream) out of all that went to the model; readers who stopped
+          # an answer are not failures.
+          expr: |
+            sum(increase(edu_assist_requests_total{outcome=~"failed|refused"}[30m]))
+              / sum(increase(edu_assist_requests_total{outcome=~"ok|failed|refused"}[30m])) > 0.5
+            and sum(increase(edu_assist_requests_total{outcome=~"ok|failed|refused"}[30m])) >= 4
+          for: 10m
+          labels:
+            severity: warning
+            service: edu-backend
+          annotations:
+            summary: "{{ $value | humanizePercentage }} of Education assistant answers fail."
+            description: Readers see "the assistant is not answering"; the books themselves work. Usually MiniMax is down, out of balance, or rejects the key.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/edu-rollout.md#помощник-не-отвечает
+        - alert: EduAssistantPaused
+          expr: sum(increase(edu_assist_requests_total{outcome="paused"}[1h])) > 0
+          labels:
+            severity: warning
+            service: edu-backend
+          annotations:
+            summary: The Education assistant reached its daily spending cap.
+            description: Until midnight UTC readers see "the assistant is paused"; the books work. Raise ASSIST_GLOBAL_DAILY_LIMIT if this is real reading, look for abuse if not.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/edu-rollout.md#помощник-не-отвечает
         - alert: EmailQueueStuck
           expr: max(notifications_delivery_oldest_queued_age_seconds{channel="email"}) > 900
           for: 5m

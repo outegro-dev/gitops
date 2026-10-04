@@ -1,0 +1,275 @@
+# Education: textbooks at edu.outegro.dev — edu-backend (books, access,
+# reading progress; imports the books with its migrations) and the web app.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: edu-migrate
+  namespace: outegro
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: outegro/edu-backend
+          imagePullPolicy: IfNotPresent
+          # Migrations, then the books in content/ (a no-op when unchanged).
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-edu
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://edu:$(DB_PASSWORD)@pg-rw:5432/edu
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edu-backend
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: edu-backend
+  template:
+    metadata:
+      labels:
+        app: edu-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: edu-backend
+          image: outegro/edu-backend
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: platform
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: LOG_LEVEL
+              value: info
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-edu
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://edu:$(DB_PASSWORD)@pg-rw:5432/edu
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey
+                  key: password
+            - name: VALKEY_URL
+              value: redis://:$(VALKEY_PASSWORD)@valkey:6379/4
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_URL
+              value: amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@rabbitmq:5672
+            - name: AUTH_JWKS_URL
+              value: http://auth-backend:4001/.well-known/jwks.json
+            # The assistant (ADR-010): off until the edu-assist secret exists
+            # (the key is read at start: restart after adding or removing it);
+            # then 30 uncached requests per reader and 500 in all per UTC day.
+            - name: ASSIST_ENABLED
+              value: "true"
+            - name: ASSIST_MODEL
+              value: MiniMax-M3
+            - name: ASSIST_DAILY_LIMIT
+              value: "30"
+            - name: ASSIST_GLOBAL_DAILY_LIMIT
+              value: "500"
+            - name: MINIMAX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: edu-assist
+                  key: MINIMAX_API_KEY
+                  optional: true
+          ports:
+            - name: http
+              containerPort: 4005
+            # Prometheus only; no Service or Ingress points at it.
+            - name: metrics
+              containerPort: 9464
+          readinessProbe:
+            httpGet:
+              path: /health/deep
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          # Lighter than the game server: no sockets, chapters come from the
+          # database per request.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 160Mi
+            limits:
+              memory: 320Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edu-backend
+  namespace: outegro
+spec:
+  selector:
+    app: edu-backend
+  ports:
+    - name: http
+      port: 4005
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edu-web
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: edu-web
+  template:
+    metadata:
+      labels:
+        app: edu-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: edu-web
+          image: outegro/edu-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: EDU_API_URL
+              value: http://edu-backend:4005
+            - name: AUTH_API_URL
+              value: http://auth-backend:4001
+            # Public catalog only: offers Education products once they exist.
+            - name: PAYMENTS_API_URL
+              value: http://payments-backend:4003
+            - name: ID_URL
+              value: https://id.outegro.dev
+            - name: APP_URL
+              value: https://edu.outegro.dev
+            - name: SITE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform
+                  key: SITE_URL
+            - name: CLIENT_IP_SOURCE
+              value: cf-connecting-ip
+          ports:
+            - name: http
+              containerPort: 3006
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 320Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edu-web
+  namespace: outegro
+spec:
+  selector:
+    app: edu-web
+  ports:
+    - name: http
+      port: 3006
+      targetPort: http
+---
+# edu.outegro.dev: everything goes to the web app; the backend stays inside
+# the cluster (the BFF calls it with the reader's token).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: edu
+  namespace: outegro
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - edu.outegro.dev
+      secretName: outegro-dev-tls
+  rules:
+    - host: edu.outegro.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: edu-web
+                port:
+                  name: http

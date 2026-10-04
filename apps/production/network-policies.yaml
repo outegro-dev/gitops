@@ -11,7 +11,7 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [auth-backend, notifications-backend, payments-backend, battleship-backend]
+        values: [auth-backend, notifications-backend, payments-backend, battleship-backend, edu-backend]
   policyTypes: [Ingress]
   ingress:
     - ports:

@@ -207,6 +207,9 @@ data:
     probe payments http://payments-backend.outegro.svc:4003/health/deep
     probe battleship-backend http://battleship-backend.outegro.svc:4004/health/deep
     probe battleship https://battleship.outegro.dev/health
+    # Education, runbook step 3 (with edu.yaml in kustomization.yaml):
+    # probe edu-backend http://edu-backend.outegro.svc:4005/health/deep
+    # probe edu https://edu.outegro.dev/health
     probe pay https://pay.outegro.dev/health
     probe admin https://admin.outegro.dev/health
 
