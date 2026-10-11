@@ -25,7 +25,7 @@ resources:
   - network-policies.yaml
 images:
   - name: outegro/landing-web
-    newTag: 2478fdd27dc9@sha256:d1d392e5deea4b00061e3c005297dbc0014474d00c459f0991ee0afbac68e7cf
+    newTag: 6a879e9644b4@sha256:a2d527a6d5dc22911b5897dc36df6db259d90fcb2319be5e27dae48e48949ad4
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
     newTag: 5a316a7aac63@sha256:c67517b6f6f3ee29a392ed2a1bef8a7a9bf84178b46058546e89432904526ceb
