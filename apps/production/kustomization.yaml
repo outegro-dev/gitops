@@ -31,10 +31,10 @@ images:
     newTag: 39caba74ac46@sha256:8a1b655e98d9404168eb00c9755cabb31f548d26a855bab813b1903b58075f72
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: 39caba74ac46@sha256:c51527bae42e071565b6dc94637faa2b8354de0c0677b39c202a49a4d11a0458
+    newTag: 740664ef3f9d@sha256:039d6cbae8f39f2f1839ea95a1f67086fa18673235587544cc5176a50b74c6d1
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: 39caba74ac46@sha256:11645a1371f7dd9726ca567de4ca833a3517353c07a40023c0a452557e6fd3a7
+    newTag: 740664ef3f9d@sha256:fb6507ede673aff7ff5aa0fefedd838fe7e0c40b865e456629ff020df65aa944
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
     newTag: 39caba74ac46@sha256:0c042695124548d65123e944b60aa3906887085b560409b95e6551caf12eecab
@@ -49,7 +49,7 @@ images:
     newTag: 39caba74ac46@sha256:5a7030ffcae5e38577dbd3ac1c36041b0620576afce750ef76378d1a7b491317
     newName: ghcr.io/outegro-dev/pay-web
   - name: outegro/admin-web
-    newTag: 39caba74ac46@sha256:8bf1f194c8bd9be8bc8c68d27906115112c411bec88eb2f5e6c66943910e12e2
+    newTag: 740664ef3f9d@sha256:0421c16386e0b74772fe4cedd349a15b1fc0251da74eafc93807590b8b86dca2
     newName: ghcr.io/outegro-dev/admin-web
   # Education: CI writes <tag>@sha256 here on the first build that includes
   # the apps; until then nothing references these images.
