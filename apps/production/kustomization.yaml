@@ -54,10 +54,10 @@ images:
   # Education: CI writes <tag>@sha256 here on the first build that includes
   # the apps; until then nothing references these images.
   - name: outegro/edu-backend
-    newTag: b59ad81e4693@sha256:bbef75a026066e79833f023f97fbd7120e4a5c97d133abd4cec7eccc8153bd02
+    newTag: 0301a4610056@sha256:4da7659bb24436daefb31e8798cc6f9b18deada42d6d3cb295a84fdffa49801d
     newName: ghcr.io/outegro-dev/edu-backend
   - name: outegro/edu-web
-    newTag: b59ad81e4693@sha256:bc62824ee6a8714c18ae489e93fc552ad316b0fa04009e8bcd89e394521019e0
+    newTag: 0301a4610056@sha256:e7607c9f0887c421f600f7aba9c2757d8d771899d07a4d818b3e02563925a9d7
     newName: ghcr.io/outegro-dev/edu-web
 # Every service and stateful workload here runs as outegro-core (OPS-08).
 patches:
