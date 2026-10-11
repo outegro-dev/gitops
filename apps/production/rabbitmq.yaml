@@ -60,7 +60,7 @@ spec:
       initContainers:
         # Repairs a cookie whose mode an earlier mount already changed.
         - name: cookie-mode
-          image: rabbitmq:4.3-management-alpine
+          image: rabbitmq:4.3.6-management-alpine@sha256:ce634665a8e7262384a793581c20cb8a46343887446eb391b77c814febeca4b2
           command:
             - sh
             - -c
@@ -80,7 +80,7 @@ spec:
               mountPath: /var/lib/rabbitmq
       containers:
         - name: rabbitmq
-          image: rabbitmq:4.3-management-alpine
+          image: rabbitmq:4.3.6-management-alpine@sha256:ce634665a8e7262384a793581c20cb8a46343887446eb391b77c814febeca4b2
           env:
             - name: RABBITMQ_DEFAULT_USER
               valueFrom:
