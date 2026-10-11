@@ -8,8 +8,9 @@ resources:
   - hermes.yaml
   - network-policy.yaml
 images:
+  # v2026.9.24, pinned by digest: an upstream re-tag does not change the pod.
   - name: nousresearch/hermes-agent
-    newTag: v2026.9.24
+    digest: sha256:fca358f12efd65bfaaca05884166f15c0e2788375ca30d77061ac1ebc96452b7
 # Managed policy (tools, model route, chat gates); a change rolls the pod.
 configMapGenerator:
   - name: hermes-policy
