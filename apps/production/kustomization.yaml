@@ -29,7 +29,7 @@ resources:
   # - roulette.yaml
   # Atelier (atelier.outegro.dev, cv.outegro.dev). Its PreSync migration needs
   # the atelier images below, the pg-atelier secret and the atelier database.
-  # - atelier.yaml
+  - atelier.yaml
   - pay.yaml
   - admin.yaml
   - hooks.yaml
