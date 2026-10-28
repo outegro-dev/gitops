@@ -38,6 +38,10 @@ spec:
               value: http://battleship-backend:4004
             - name: EDU_API_URL
               value: http://edu-backend:4005
+            # The Wallet section: on in step 3 of wallet-rollout.md, with
+            # wallet.yaml; without it the section says "not connected yet".
+            # - name: WALLET_API_URL
+            #   value: http://wallet-backend:4007
             - name: ID_URL
               value: https://id.outegro.dev
             - name: APP_URL

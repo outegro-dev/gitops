@@ -1,0 +1,158 @@
+# Wallet: grumbles, the platform's one internal currency (ADR-011 in the
+# platform repo). wallet-backend owns balances and the insert-only journal;
+# admin-web, payments and roulette-backend call it inside the cluster only:
+# no Ingress, the internal API takes the shared platform-internal token.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: wallet-migrate
+  namespace: outegro
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: outegro/wallet-backend
+          imagePullPolicy: IfNotPresent
+          # The schema, the GRM system accounts and the journal's guards
+          # (no UPDATE, DELETE or TRUNCATE for the owner role, a trigger
+          # for every role).
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-wallet
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://wallet:$(DB_PASSWORD)@pg-rw:5432/wallet
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-backend
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: wallet-backend
+  template:
+    metadata:
+      labels:
+        app: wallet-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: wallet-backend
+          image: outegro/wallet-backend
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: platform
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=160
+            - name: LOG_LEVEL
+              value: info
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-wallet
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://wallet:$(DB_PASSWORD)@pg-rw:5432/wallet
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey
+                  key: password
+            - name: VALKEY_URL
+              value: redis://:$(VALKEY_PASSWORD)@valkey:6379/5
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_URL
+              value: amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@rabbitmq:5672
+            - name: AUTH_JWKS_URL
+              value: http://auth-backend:4001/.well-known/jwks.json
+            # payments and roulette-backend present it on the internal API.
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-internal
+                  key: INTERNAL_API_TOKEN
+            # The most one admin command may grant, take or move a balance by.
+            - name: WALLET_ADMIN_MAX_AMOUNT
+              value: "1000000"
+          ports:
+            - name: http
+              containerPort: 4007
+            # Prometheus only; no Service or Ingress points at it.
+            - name: metrics
+              containerPort: 9464
+          readinessProbe:
+            httpGet:
+              path: /health/deep
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          # One short transaction per operation, no sockets.
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallet-backend
+  namespace: outegro
+spec:
+  selector:
+    app: wallet-backend
+  ports:
+    - name: http
+      port: 4007
+      targetPort: http
