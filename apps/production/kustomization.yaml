@@ -22,6 +22,11 @@ resources:
   # below, the pg-wallet secret and the wallet database: switched on in step
   # 3 of docs/06-operations/wallet-rollout.md in the platform repo.
   # - wallet.yaml
+  # Roulette (ADR-012): its own Valkey from step 1; the apps and the PreSync
+  # migration of its three databases switch on in step 3 of
+  # docs/06-operations/roulette-rollout.md in the platform repo.
+  - valkey-roulette.yaml
+  # - roulette.yaml
   - pay.yaml
   - admin.yaml
   - hooks.yaml
@@ -62,6 +67,20 @@ images:
     newName: ghcr.io/outegro-dev/edu-backend
   # Wallet: CI writes <tag>@sha256 here on the first build that includes
   # wallet-backend; until then nothing references this image.
+  # Roulette: CI writes <tag>@sha256 here on the first build that includes
+  # them; until then nothing references these images.
+  - name: outegro/roulette-web
+    newTag: pending
+    newName: ghcr.io/outegro-dev/roulette-web
+  - name: outegro/roulette-backend
+    newTag: pending
+    newName: ghcr.io/outegro-dev/roulette-backend
+  - name: outegro/fair-roll-backend
+    newTag: pending
+    newName: ghcr.io/outegro-dev/fair-roll-backend
+  - name: outegro/daily-bonus-backend
+    newTag: pending
+    newName: ghcr.io/outegro-dev/daily-bonus-backend
   - name: outegro/wallet-backend
     newTag: pending
     newName: ghcr.io/outegro-dev/wallet-backend

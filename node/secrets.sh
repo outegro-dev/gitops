@@ -75,6 +75,17 @@ once "$NS" pg-edu --type=kubernetes.io/basic-auth \
   --from-literal=username=edu --from-literal=password="$(hex 24)"
 once "$NS" pg-wallet --type=kubernetes.io/basic-auth \
   --from-literal=username=wallet --from-literal=password="$(hex 24)"
+# Roulette (ADR-012): three databases, a Valkey of its own, the seed chain's
+# root (whoever reads it knows every outcome) and the bonus's hash pepper.
+once "$NS" pg-roulette --type=kubernetes.io/basic-auth \
+  --from-literal=username=roulette --from-literal=password="$(hex 24)"
+once "$NS" pg-fair-roll --type=kubernetes.io/basic-auth \
+  --from-literal=username=fair_roll --from-literal=password="$(hex 24)"
+once "$NS" pg-daily --type=kubernetes.io/basic-auth \
+  --from-literal=username=daily --from-literal=password="$(hex 24)"
+once "$NS" valkey-roulette --from-literal=password="$(hex 32)"
+once "$NS" fair-roll --from-literal=FAIR_ROLL_ROOT="$(hex 32)"
+once "$NS" daily-bonus --from-literal=DAILY_HASH_PEPPER="$(hex 32)"
 once "$NS" valkey --from-literal=password="$(hex 32)"
 once "$NS" rabbitmq --from-literal=username=outegro --from-literal=password="$(hex 32)"
 # Telegram echoes it on every webhook call (X-Telegram-Bot-Api-Secret-Token).

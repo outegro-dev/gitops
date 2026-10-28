@@ -211,6 +211,11 @@ data:
     probe edu https://edu.outegro.dev/health
     # Wallet: on in step 3 of wallet-rollout.md, with wallet.yaml.
     # probe wallet-backend http://wallet-backend.outegro.svc:4007/health/deep
+    # Roulette: on in step 3 of roulette-rollout.md, with roulette.yaml.
+    # probe roulette-backend http://roulette-backend.outegro.svc:4006/health/deep
+    # probe fair-roll-backend http://fair-roll-backend.outegro.svc:4100/health/deep
+    # probe daily-bonus-backend http://daily-bonus-backend.outegro.svc:4101/health/deep
+    # probe roulette https://roulette.outegro.dev/health
     probe pay https://pay.outegro.dev/health
     probe admin https://admin.outegro.dev/health
 

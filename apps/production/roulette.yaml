@@ -1,0 +1,511 @@
+# Roulette at roulette.outegro.dev (ADR-012 in the platform repo):
+# fair-roll-backend (the seed chain, internal only), roulette-backend (rounds,
+# bets, the game socket), daily-bonus-backend (the bonus of the day) and the
+# web app. Stakes are grumbles from wallet-backend, so the wallet runs first.
+# Switched on in step 3 of docs/06-operations/roulette-rollout.md.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: roulette-migrate
+  namespace: outegro
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: roulette
+          image: outegro/roulette-backend
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-roulette
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://roulette:$(DB_PASSWORD)@pg-rw:5432/roulette
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+        - name: fair-roll
+          image: outegro/fair-roll-backend
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-fair-roll
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://fair_roll:$(DB_PASSWORD)@pg-rw:5432/fair_roll
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+        - name: daily
+          image: outegro/daily-bonus-backend
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-daily
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://daily:$(DB_PASSWORD)@pg-rw:5432/daily
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fair-roll-backend
+  namespace: outegro
+spec:
+  replicas: 1
+  # One holder of the root at a time; reveals are serialised in Postgres anyway.
+  strategy:
+    type: Recreate
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: fair-roll-backend
+  template:
+    metadata:
+      labels:
+        app: fair-roll-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: fair-roll-backend
+          image: outegro/fair-roll-backend
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=128
+            - name: LOG_LEVEL
+              value: info
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-fair-roll
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://fair_roll:$(DB_PASSWORD)@pg-rw:5432/fair_roll
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-internal
+                  key: INTERNAL_API_TOKEN
+            - name: FAIR_ROLL_ROOT
+              valueFrom:
+                secretKeyRef:
+                  name: fair-roll
+                  key: FAIR_ROLL_ROOT
+            - name: FAIR_ROLL_CHAIN_LENGTH
+              value: "1000000"
+            # The randomness of the drand round announced with the season's
+            # commit, set in step 3 once that round has happened. Without it
+            # the pod does not start and nothing is recorded; once recorded
+            # it can never change for this chain.
+            # - name: FAIR_ROLL_PUBLIC_SEED
+            #   value: drand-quicknet:<round>:<randomness>
+          ports:
+            - name: http
+              containerPort: 4100
+            - name: metrics
+              containerPort: 9464
+          readinessProbe:
+            httpGet:
+              path: /health/deep
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            # Building the chain takes a couple of seconds at start.
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 96Mi
+            limits:
+              memory: 192Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fair-roll-backend
+  namespace: outegro
+spec:
+  selector:
+    app: fair-roll-backend
+  ports:
+    - name: http
+      port: 4100
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roulette-backend
+  namespace: outegro
+spec:
+  # The engine runs on whichever replica holds the lease; one is enough.
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: roulette-backend
+  template:
+    metadata:
+      labels:
+        app: roulette-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: roulette-backend
+          image: outegro/roulette-backend
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: platform
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=256
+            - name: LOG_LEVEL
+              value: info
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-roulette
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://roulette:$(DB_PASSWORD)@pg-rw:5432/roulette
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-roulette
+                  key: password
+            - name: VALKEY_URL
+              value: redis://:$(VALKEY_PASSWORD)@valkey-roulette:6379/0
+            - name: AUTH_JWKS_URL
+              value: http://auth-backend:4001/.well-known/jwks.json
+            - name: AUTH_INTERNAL_URL
+              value: http://auth-backend:4001
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-internal
+                  key: INTERNAL_API_TOKEN
+            - name: FAIR_ROLL_URL
+              value: http://fair-roll-backend:4100
+            - name: DAILY_BONUS_URL
+              value: http://daily-bonus-backend:4101
+            # Real grumbles: the service refuses to start in production without these.
+            - name: WALLET_MODE
+              value: http
+            - name: WALLET_URL
+              value: http://wallet-backend:4007
+            - name: WS_ALLOWED_ORIGINS
+              value: https://roulette.outegro.dev
+          ports:
+            - name: http
+              containerPort: 4006
+            - name: metrics
+              containerPort: 9464
+          readinessProbe:
+            httpGet:
+              path: /health/deep
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 192Mi
+            limits:
+              memory: 384Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: roulette-backend
+  namespace: outegro
+spec:
+  selector:
+    app: roulette-backend
+  ports:
+    - name: http
+      port: 4006
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: daily-bonus-backend
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: daily-bonus-backend
+  template:
+    metadata:
+      labels:
+        app: daily-bonus-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: daily-bonus-backend
+          image: outegro/daily-bonus-backend
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: platform
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=128
+            - name: LOG_LEVEL
+              value: info
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-daily
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://daily:$(DB_PASSWORD)@pg-rw:5432/daily
+            - name: AUTH_JWKS_URL
+              value: http://auth-backend:4001/.well-known/jwks.json
+            - name: AUTH_INTERNAL_URL
+              value: http://auth-backend:4001
+            - name: INTERNAL_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: platform-internal
+                  key: INTERNAL_API_TOKEN
+            - name: DAILY_HASH_PEPPER
+              valueFrom:
+                secretKeyRef:
+                  name: daily-bonus
+                  key: DAILY_HASH_PEPPER
+            - name: WALLET_MODE
+              value: http
+            - name: WALLET_URL
+              value: http://wallet-backend:4007
+          ports:
+            - name: http
+              containerPort: 4101
+            - name: metrics
+              containerPort: 9464
+          readinessProbe:
+            httpGet:
+              path: /health/deep
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 128Mi
+            limits:
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: daily-bonus-backend
+  namespace: outegro
+spec:
+  selector:
+    app: daily-bonus-backend
+  ports:
+    - name: http
+      port: 4101
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: roulette-web
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: roulette-web
+  template:
+    metadata:
+      labels:
+        app: roulette-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: roulette-web
+          image: outegro/roulette-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: ROULETTE_API_URL
+              value: http://roulette-backend:4006
+            - name: GAME_WS_URL
+              value: wss://roulette.outegro.dev
+            - name: WALLET_API_URL
+              value: http://wallet-backend:4007
+            - name: DAILY_API_URL
+              value: http://daily-bonus-backend:4101
+            - name: AUTH_API_URL
+              value: http://auth-backend:4001
+            - name: ID_URL
+              value: https://id.outegro.dev
+            - name: APP_URL
+              value: https://roulette.outegro.dev
+            - name: SITE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform
+                  key: SITE_URL
+            - name: PAY_URL
+              value: https://pay.outegro.dev
+            - name: EDU_URL
+              value: https://edu.outegro.dev
+            - name: BATTLESHIP_URL
+              value: https://battleship.outegro.dev
+            - name: ADMIN_URL
+              value: https://admin.outegro.dev
+            - name: CLIENT_IP_SOURCE
+              value: cf-connecting-ip
+          ports:
+            - name: http
+              containerPort: 3007
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 320Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: roulette-web
+  namespace: outegro
+spec:
+  selector:
+    app: roulette-web
+  ports:
+    - name: http
+      port: 3007
+      targetPort: http
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: roulette
+  namespace: outegro
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - roulette.outegro.dev
+      secretName: outegro-dev-tls
+  rules:
+    - host: roulette.outegro.dev
+      http:
+        paths:
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: roulette-backend
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: roulette-web
+                port:
+                  name: http
