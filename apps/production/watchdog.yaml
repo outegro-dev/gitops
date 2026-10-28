@@ -209,8 +209,7 @@ data:
     probe battleship https://battleship.outegro.dev/health
     probe edu-backend http://edu-backend.outegro.svc:4005/health/deep
     probe edu https://edu.outegro.dev/health
-    # Wallet: on in step 3 of wallet-rollout.md, with wallet.yaml.
-    # probe wallet-backend http://wallet-backend.outegro.svc:4007/health/deep
+    probe wallet-backend http://wallet-backend.outegro.svc:4007/health/deep
     probe pay https://pay.outegro.dev/health
     probe admin https://admin.outegro.dev/health
 
