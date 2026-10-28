@@ -1,5 +1,9 @@
 # Migrations run as Argo CD PreSync hooks: every sync migrates before the
 # new version rolls out. They get the database URL and nothing else.
+# Two at a time (sync-wave 1–4, the next pair starts when both finished):
+# all of them at once pulled new images and started ~300 MB Node processes
+# together, and the 8 GB node ran out of memory during a full release
+# (28.10.2026, Postgres restarted).
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -7,6 +11,7 @@ metadata:
   namespace: outegro
   annotations:
     argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "1"
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   backoffLimit: 2
@@ -46,6 +51,7 @@ metadata:
   namespace: outegro
   annotations:
     argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/sync-wave: "1"
     argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
 spec:
   backoffLimit: 2
