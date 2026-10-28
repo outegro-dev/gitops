@@ -81,6 +81,12 @@ spec:
         login: true
         passwordSecret:
           name: pg-edu
+      # Wallet (grumbles): needs the pg-wallet secret (wallet-rollout step 0).
+      - name: wallet
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-wallet
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -128,6 +134,17 @@ metadata:
 spec:
   name: edu
   owner: edu
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: wallet
+  namespace: outegro
+spec:
+  name: wallet
+  owner: wallet
   cluster:
     name: pg
 ---

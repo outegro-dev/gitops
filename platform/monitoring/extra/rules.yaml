@@ -268,3 +268,42 @@ spec:
             summary: An email has waited {{ $value | humanizeDuration }} to be sent.
             description: Messages arrive late (or the channel is paused on purpose in the admin console).
             runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/notification-incident.md
+    - name: outegro.wallet
+      rules:
+        - alert: WalletReconciliationIssues
+          # Open issues of the wallet's reconciliation: a cache or a system
+          # account that disagrees with the journal, or accounts that do not
+          # sum to zero. Reconciliation repairs nothing.
+          expr: sum(wallet_reconciliation_issues) > 0
+          for: 5m
+          labels:
+            severity: critical
+            service: wallet-backend
+          annotations:
+            summary: "{{ $value }} wallet reconciliation issue(s) open."
+            description: A balance no longer matches the journal of grumbles. Operations keep working; the console's Wallet → Reconciliation shows where.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/wallet-rollout.md#расхождения-сверки
+        - alert: WalletReconciliationStale
+          # The worker passes every 5 minutes; a pod up for over 30 minutes
+          # without a finished pass has a stuck or failing worker.
+          expr: |
+            (time() - max(wallet_reconciliation_last_success_timestamp_seconds{service="wallet-backend"})) > 1800
+            and on() (time() - max(process_start_time_seconds{service="wallet-backend"})) > 1800
+          for: 10m
+          labels:
+            severity: warning
+            service: wallet-backend
+          annotations:
+            summary: The wallet's reconciliation has not finished a pass for {{ $value | humanizeDuration }}.
+            description: Drifts would go unnoticed (SAFE_MODE stops the worker on purpose).
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/wallet-rollout.md#расхождения-сверки
+        - alert: WalletOperationsFailing
+          # Internal errors only: refusals (402, 423, 409) are answers, not failures.
+          expr: sum(increase(wallet_operations_total{result="error"}[10m])) > 0
+          labels:
+            severity: warning
+            service: wallet-backend
+          annotations:
+            summary: Wallet operations fail with internal errors.
+            description: Purchases, stakes or payouts may not go through; usually the database is unavailable.
+            runbook_url: https://github.com/outegro-dev/platform/blob/master/docs/06-operations/wallet-rollout.md#расхождения-сверки
