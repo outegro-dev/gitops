@@ -1,0 +1,86 @@
+# Valkey of the roulette alone (ADR-012): the engine lease, round phases,
+# bet reservations, totals and the round frames' pub/sub. Nothing in it
+# outlives a round that Postgres does not also hold, so no disk: a restart
+# costs the reservations of the round in play, which the close rolls back.
+apiVersion: v1
+kind: Service
+metadata:
+  name: valkey-roulette
+  namespace: outegro
+spec:
+  selector:
+    app: valkey-roulette
+  ports:
+    - name: redis
+      port: 6379
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: valkey-roulette
+  namespace: outegro
+spec:
+  serviceName: valkey-roulette
+  replicas: 1
+  selector:
+    matchLabels:
+      app: valkey-roulette
+  template:
+    metadata:
+      labels:
+        app: valkey-roulette
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: valkey
+          image: valkey/valkey:9.1.2-alpine@sha256:48332870af354a799964c0012ae1194a0bf2bf894eb508f945810596dc2d8d11
+          args:
+            - --save
+            - ""
+            - --appendonly
+            - "no"
+            - --maxmemory
+            - 64mb
+            - --maxmemory-policy
+            - noeviction
+            - --requirepass
+            - $(VALKEY_PASSWORD)
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey-roulette
+                  key: password
+          ports:
+            - name: redis
+              containerPort: 6379
+          readinessProbe:
+            tcpSocket:
+              port: redis
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: redis
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 25m
+              memory: 32Mi
+            limits:
+              memory: 96Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: data
+          emptyDir: {}

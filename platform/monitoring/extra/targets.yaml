@@ -86,6 +86,6 @@ spec:
     matchExpressions:
       - key: app
         operator: In
-        values: [auth-backend, notifications-backend, payments-backend, battleship-backend, edu-backend, wallet-backend]
+        values: [auth-backend, notifications-backend, payments-backend, battleship-backend, edu-backend, wallet-backend, roulette-backend, fair-roll-backend, daily-bonus-backend]
   podMetricsEndpoints:
     - port: metrics

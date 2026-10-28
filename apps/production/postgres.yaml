@@ -87,6 +87,23 @@ spec:
         login: true
         passwordSecret:
           name: pg-wallet
+      # Roulette (ADR-012): need pg-roulette, pg-fair-roll and pg-daily
+      # (roulette-rollout step 0).
+      - name: roulette
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-roulette
+      - name: fair_roll
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-fair-roll
+      - name: daily
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-daily
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -145,6 +162,39 @@ metadata:
 spec:
   name: wallet
   owner: wallet
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: roulette
+  namespace: outegro
+spec:
+  name: roulette
+  owner: roulette
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: fair-roll
+  namespace: outegro
+spec:
+  name: fair_roll
+  owner: fair_roll
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: daily
+  namespace: outegro
+spec:
+  name: daily
+  owner: daily
   cluster:
     name: pg
 ---
