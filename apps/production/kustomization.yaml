@@ -37,69 +37,74 @@ resources:
   - network-policies.yaml
 images:
   - name: outegro/landing-web
-    newTag: ac3407a7f0c3@sha256:e53610aa35db7cb05ff35559b5a653865a1e70ede1ff1dec2317d7f65750461c
+    newTag: 35fbfc5f1db6@sha256:3aa8cadbfded9e25b8a12991390abe419a41d2d8b922037a85c7fcf57a9fb4b1
     newName: ghcr.io/outegro-dev/landing-web
   - name: outegro/id-web
-    newTag: ac3407a7f0c3@sha256:c32ab2e6eaab3390b240e6337f43693ed857cf93be7ddce1ca8ecb63999b1e34
+    newTag: 35fbfc5f1db6@sha256:60e0860a0fb56e86e4dbaf3495c74ef70d801836eca296af3b9cc559240a52ee
     newName: ghcr.io/outegro-dev/id-web
   - name: outegro/auth-backend
-    newTag: ac3407a7f0c3@sha256:1c3b06cd170e2567689cff91f937ee86e09915efb604e5cc3d7cca8877aecd5d
+    newTag: 35fbfc5f1db6@sha256:c74578cf84ce07be3430844b70bc00874e9aad330fbd815ae5404c3616986ff2
     newName: ghcr.io/outegro-dev/auth-backend
   - name: outegro/notifications-backend
-    newTag: ac3407a7f0c3@sha256:5a98e7cf3d41c88cf24e9f6eea9fb52010d400da0bb26542d2edd5938841d050
+    newTag: 35fbfc5f1db6@sha256:725f5260baaff1e21521da428c2b7b887525d76d652474f8111901613ce40c42
     newName: ghcr.io/outegro-dev/notifications-backend
   - name: outegro/payments-backend
-    newTag: ac3407a7f0c3@sha256:6f71414500e849e837b82f9ef64d679642a5c7f58bbd1b910b4e2c745ee9ecd3
+    newTag: 35fbfc5f1db6@sha256:f00b5d0028db4ad4bbccd5b51cd754fbf60672b8b7d1c5dbf8ee24b2e4d3be34
     newName: ghcr.io/outegro-dev/payments-backend
   - name: outegro/battleship-backend
-    newTag: ac3407a7f0c3@sha256:f395fc4e31f513ad1e30ef1505f0799667446036799b6c64d9e071a252483c16
+    newTag: 35fbfc5f1db6@sha256:5c740cd72a5ae05cb69e3301382518bdbd88940ce3bc2013534dc775c32dec55
     newName: ghcr.io/outegro-dev/battleship-backend
   - name: outegro/battleship-web
-    newTag: ac3407a7f0c3@sha256:0bdb4c2e91d503d7cae455937fec22ba709274a45fbddccb3d729f7f365c4c32
+    newTag: 35fbfc5f1db6@sha256:94ae0a1fc086106ac2340426369ee528455459591041da325fb910fbdf084834
     newName: ghcr.io/outegro-dev/battleship-web
   - name: outegro/pay-web
-    newTag: ac3407a7f0c3@sha256:5de4173bf0a73f1171fb768b2a3ff233d468559b4600e9fccae0c3b48960d1a6
+    newTag: 35fbfc5f1db6@sha256:932bad5cf9ca8957db14a9b9228077ac95f6eceacddcb862557f754d89be61a3
     newName: ghcr.io/outegro-dev/pay-web
   - name: outegro/admin-web
-    newTag: ac3407a7f0c3@sha256:e71b57eead23171dc10ff3769f1d1b3dd9f5b7ce09ecc91edc2733a6caeda702
+    newTag: 35fbfc5f1db6@sha256:a21ba96fe4656bbcf7a89932eb25f24d2e0a711c7b35ff8c8af294adf4e1d538
     newName: ghcr.io/outegro-dev/admin-web
   # Education: CI writes <tag>@sha256 here on the first build that includes
   # the apps; until then nothing references these images.
   - name: outegro/edu-backend
-    newTag: ac3407a7f0c3@sha256:a50e89d21cd4c46212e32331fb7b821bd6deb771bbd6293f559b3fa4d9eac9ef
+    newTag: 35fbfc5f1db6@sha256:a8397b1615ffbd45dc04fc5fb4bdc2bfb3f59bb6767cb4df0d2b6c0783e347a4
     newName: ghcr.io/outegro-dev/edu-backend
   # Wallet: CI writes <tag>@sha256 here on the first build that includes
   # wallet-backend; until then nothing references this image.
   # Roulette: CI writes <tag>@sha256 here on the first build that includes
   # them; until then nothing references these images.
   - name: outegro/roulette-web
-    newTag: ac3407a7f0c3@sha256:eec14b596de32e24848fff96193f3b791adbb96883d541eef515257a0387355f
+    newTag: 35fbfc5f1db6@sha256:df817868011477af132bfd384ae714e3c3736ac098f0f38cfbc223dcca6507e7
     newName: ghcr.io/outegro-dev/roulette-web
   - name: outegro/roulette-backend
-    newTag: ac3407a7f0c3@sha256:aedd09ab6336b7224b072e41daa1220d44c3a1e3aeafae9864ecfb731c064d8c
+    newTag: 35fbfc5f1db6@sha256:75bf3e510aad61b04ee7d7436134f6aa5d189361287a4bbeb522043d63954610
     newName: ghcr.io/outegro-dev/roulette-backend
   - name: outegro/fair-roll-backend
-    newTag: ac3407a7f0c3@sha256:97dfe91fd2f9de5e1a93267e2004aa5d3f6de72a29e1e4d61b6ec551a48b8de4
+    newTag: 35fbfc5f1db6@sha256:4be2211d03f7464e6111d64850d296771d8d383b26eac4b01804dff6bf18eaa8
     newName: ghcr.io/outegro-dev/fair-roll-backend
   - name: outegro/daily-bonus-backend
-    newTag: ac3407a7f0c3@sha256:713828221f6d42286fb5df2c11f3b3c4b4f5a3bd71600d1b20b7ab4393c3c4d5
+    newTag: 35fbfc5f1db6@sha256:dfc72e4cd4988c12e5da85768d30dc4b664ecce05f6e41d3985c16add51c4a21
     newName: ghcr.io/outegro-dev/daily-bonus-backend
   - name: outegro/wallet-backend
-    newTag: ac3407a7f0c3@sha256:d78861aa4a807cdb35a550a1fa9043fee09bae6431d285259a84c4c92a9b5a0d
+    newTag: 35fbfc5f1db6@sha256:73153805da6bf78aa5721ee62d831586098b0f9147a86dcc388ab2dfbc5ac29d
     newName: ghcr.io/outegro-dev/wallet-backend
   - name: outegro/edu-web
-    newTag: ac3407a7f0c3@sha256:f276239a0d231916bc5fe66243d5e60b0e63b6897e3468afe5a9832de6a53d7a
+    newTag: 35fbfc5f1db6@sha256:34e9fdeee48ea2e1d9d77f25b4e135ab619bec3d18a04708ebb9481515ca9a86
     newName: ghcr.io/outegro-dev/edu-web
   - name: outegro/atelier-backend
-    newTag: pending
+    newTag: 35fbfc5f1db6@sha256:167f8cb818cda0a39538ff0f6cbc9495c1f8cb7d89a6c00fd18799c674cc13c9
+    newName: ghcr.io/outegro-dev/atelier-backend
   - name: outegro/atelier-web
-    newTag: pending
+    newTag: 35fbfc5f1db6@sha256:55dff9c2bb27de8c70db7b9c53853c307479d7c69db2b19deadb27be8dcf433d
+    newName: ghcr.io/outegro-dev/atelier-web
   - name: outegro/llm-gateway
-    newTag: pending
+    newTag: 35fbfc5f1db6@sha256:c8f176fabec72dfadf4de2b1b523290bb0ea7a103891d42606ae54748485df49
+    newName: ghcr.io/outegro-dev/llm-gateway
   - name: outegro/atelier-tex
-    newTag: pending
+    newTag: 35fbfc5f1db6@sha256:1fe51573e0dc8e16d263959e497faef27a43791b8f79d598f42a357c1d7464de
+    newName: ghcr.io/outegro-dev/atelier-tex
   - name: outegro/atelier-browser
-    newTag: pending
+    newTag: 35fbfc5f1db6@sha256:400636f65fcefa5c5f86cdb5c9a9ccb01db2e62bc7165f1b1385450e6fb96c3f
+    newName: ghcr.io/outegro-dev/atelier-browser
 # Every service and stateful workload here runs as outegro-core (OPS-08),
 # except the heavy Atelier workers (Chromium, XeLaTeX, model CLIs): labelled
 # outegro.dev/priority=agents, they rank with Hermes and are evicted first.
