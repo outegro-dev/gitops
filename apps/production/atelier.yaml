@@ -1,0 +1,651 @@
+# Atelier: the owner's job search at atelier.outegro.dev, CV links at
+# cv.outegro.dev. atelier-backend runs the API, the orchestrator and the step
+# workers in one process; llm-gateway (Codex / Claude / MiniMax CLIs),
+# atelier-tex (XeLaTeX) and atelier-browser (Chromium for ATS forms) are the
+# heavy ones: labelled outegro.dev/priority=agents, they are evicted before
+# any platform service when memory runs short (kustomization patches).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: atelier-migrate
+  namespace: outegro
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation
+spec:
+  backoffLimit: 2
+  activeDeadlineSeconds: 300
+  ttlSecondsAfterFinished: 86400
+  template:
+    spec:
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: outegro/atelier-backend
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/db/migrate.js"]
+          env:
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-atelier
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://atelier:$(DB_PASSWORD)@pg-rw:5432/atelier
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atelier-backend
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: atelier-backend
+  template:
+    metadata:
+      labels:
+        app: atelier-backend
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: atelier-backend
+          image: outegro/atelier-backend
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: platform
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=320
+            - name: LOG_LEVEL
+              value: info
+            # One process: HTTP API, orchestrator and every light step worker.
+            - name: ROLE
+              value: api,worker
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: pg-atelier
+                  key: password
+            - name: DATABASE_URL
+              value: postgres://atelier:$(DB_PASSWORD)@pg-rw:5432/atelier
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: valkey
+                  key: password
+            - name: VALKEY_URL
+              value: redis://:$(VALKEY_PASSWORD)@valkey:6379/5
+            - name: RABBITMQ_USER
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: username
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: rabbitmq
+                  key: password
+            - name: RABBITMQ_URL
+              value: amqp://$(RABBITMQ_USER):$(RABBITMQ_PASSWORD)@rabbitmq:5672
+            - name: AUTH_JWKS_URL
+              value: http://auth-backend:4001/.well-known/jwks.json
+            - name: APP_URL
+              value: https://atelier.outegro.dev
+            - name: CV_PUBLIC_BASE_URL
+              value: https://cv.outegro.dev
+            # No object storage in the cluster yet: files live in Postgres
+            # until an R2 bucket exists (then S3_* and STORAGE_DRIVER=s3).
+            - name: STORAGE_DRIVER
+              value: pg
+            - name: LLM_GATEWAY_URL
+              value: http://llm-gateway:4009
+            - name: LLM_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-internal
+                  key: LLM_GATEWAY_TOKEN
+            - name: ATELIER_TEX_URL
+              value: http://atelier-tex:4010
+            - name: ATELIER_TEX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-internal
+                  key: ATELIER_TEX_TOKEN
+            - name: ATELIER_BROWSER_URL
+              value: http://atelier-browser:4011
+            - name: ATELIER_BROWSER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-internal
+                  key: ATELIER_BROWSER_TOKEN
+          ports:
+            - name: http
+              containerPort: 4008
+            - name: metrics
+              containerPort: 9464
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 50m
+              memory: 192Mi
+            limits:
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atelier-backend
+  namespace: outegro
+spec:
+  selector:
+    app: atelier-backend
+  ports:
+    - name: http
+      port: 4008
+      targetPort: http
+---
+# Codex refreshes its login in CODEX_HOME, so the home is a volume seeded once
+# from the atelier-codex secret (the init container never overwrites it).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: llm-gateway-home
+  namespace: outegro
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 64Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-gateway
+  namespace: outegro
+  labels:
+    outegro.dev/priority: agents
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  # One pod owns the volume with the Codex login.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: llm-gateway
+  template:
+    metadata:
+      labels:
+        app: llm-gateway
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: seed-codex-home
+          image: outegro/llm-gateway
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              if [ ! -s /codex-home/auth.json ] && [ -s /seed/auth.json ]; then
+                cp /seed/auth.json /codex-home/auth.json && chmod 600 /codex-home/auth.json
+                echo "codex login seeded"
+              fi
+          volumeMounts:
+            - name: codex-home
+              mountPath: /codex-home
+            - name: codex-seed
+              mountPath: /seed
+              readOnly: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      containers:
+        - name: llm-gateway
+          image: outegro/llm-gateway
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: LOG_LEVEL
+              value: info
+            - name: CODEX_HOME
+              value: /codex-home
+            - name: HOME
+              value: /codex-home
+            - name: LLM_GATEWAY_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-internal
+                  key: LLM_GATEWAY_TOKEN
+            - name: MINIMAX_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-llm
+                  key: MINIMAX_API_KEY
+                  optional: true
+            - name: CLAUDE_CODE_OAUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-llm
+                  key: CLAUDE_CODE_OAUTH_TOKEN
+                  optional: true
+          ports:
+            - name: http
+              containerPort: 4009
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          # Each Codex call is a CLI process of ~150 MB; three at most.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: codex-home
+              mountPath: /codex-home
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: codex-home
+          persistentVolumeClaim:
+            claimName: llm-gateway-home
+        - name: codex-seed
+          secret:
+            secretName: atelier-codex
+            optional: true
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-gateway
+  namespace: outegro
+spec:
+  selector:
+    app: llm-gateway
+  ports:
+    - name: http
+      port: 4009
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atelier-tex
+  namespace: outegro
+  labels:
+    outegro.dev/priority: agents
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: atelier-tex
+  template:
+    metadata:
+      labels:
+        app: atelier-tex
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: atelier-tex
+          image: outegro/atelier-tex
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=128
+            - name: LOG_LEVEL
+              value: info
+            - name: TEX_CONCURRENCY
+              value: "1"
+            - name: ATELIER_TEX_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-internal
+                  key: ATELIER_TEX_TOKEN
+          ports:
+            - name: http
+              containerPort: 4010
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 20m
+              memory: 96Mi
+            limits:
+              memory: 768Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atelier-tex
+  namespace: outegro
+spec:
+  selector:
+    app: atelier-tex
+  ports:
+    - name: http
+      port: 4010
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atelier-browser
+  namespace: outegro
+  labels:
+    outegro.dev/priority: agents
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: atelier-browser
+  template:
+    metadata:
+      labels:
+        app: atelier-browser
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: atelier-browser
+          image: outegro/atelier-browser
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=160
+            - name: LOG_LEVEL
+              value: info
+            - name: BROWSER_CONCURRENCY
+              value: "1"
+            - name: ATELIER_BROWSER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-internal
+                  key: ATELIER_BROWSER_TOKEN
+          ports:
+            - name: http
+              containerPort: 4011
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          # Chromium with one tab; it starts per request and exits after it.
+          resources:
+            requests:
+              cpu: 20m
+              memory: 128Mi
+            limits:
+              memory: 1Gi
+          volumeMounts:
+            - name: dshm
+              mountPath: /dev/shm
+            - name: tmp
+              mountPath: /tmp
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atelier-browser
+  namespace: outegro
+spec:
+  selector:
+    app: atelier-browser
+  ports:
+    - name: http
+      port: 4011
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: atelier-web
+  namespace: outegro
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: atelier-web
+  template:
+    metadata:
+      labels:
+        app: atelier-web
+    spec:
+      imagePullSecrets:
+        - name: ghcr-pull
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: atelier-web
+          image: outegro/atelier-web
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: NODE_OPTIONS
+              value: --max-old-space-size=192
+            - name: ATELIER_API_URL
+              value: http://atelier-backend:4008
+            - name: AUTH_API_URL
+              value: http://auth-backend:4001
+            - name: ID_URL
+              value: https://id.outegro.dev
+            - name: APP_URL
+              value: https://atelier.outegro.dev
+            - name: SITE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: platform
+                  key: SITE_URL
+            - name: CLIENT_IP_SOURCE
+              value: cf-connecting-ip
+          ports:
+            - name: http
+              containerPort: 3007
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+          resources:
+            requests:
+              cpu: 30m
+              memory: 128Mi
+            limits:
+              memory: 320Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: atelier-web
+  namespace: outegro
+spec:
+  selector:
+    app: atelier-web
+  ports:
+    - name: http
+      port: 3007
+      targetPort: http
+---
+# atelier.outegro.dev: everything goes to the web app; the backend stays inside
+# the cluster (the BFF calls it with the owner's token).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: atelier
+  namespace: outegro
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - atelier.outegro.dev
+      secretName: outegro-dev-tls
+  rules:
+    - host: atelier.outegro.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: atelier-web
+                port:
+                  name: http
+---
+# cv.outegro.dev/<hash>/<file>.pdf: public CV links, served by atelier-backend
+# under /cv. Nothing else of the backend is reachable on this host.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cv-prefix
+  namespace: outegro
+spec:
+  addPrefix:
+    prefix: /cv
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cv
+  namespace: outegro
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.middlewares: outegro-cv-prefix@kubernetescrd
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - cv.outegro.dev
+      secretName: outegro-dev-tls
+  rules:
+    - host: cv.outegro.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: atelier-backend
+                port:
+                  name: http

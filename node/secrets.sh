@@ -57,6 +57,18 @@ fi
 if has MINIMAX_API_KEY; then
   put "$NS" edu-assist --from-literal=MINIMAX_API_KEY="${in[MINIMAX_API_KEY]}"
 fi
+# Atelier (atelier.outegro.dev, owner-only): the owner's Codex login (auth.json
+# of his ChatGPT subscription, base64) and optional Claude / MiniMax keys, read
+# only by llm-gateway. The Codex file is copied once into its volume: Codex
+# refreshes the token there, so a re-run replaces only the seed.
+if has ATELIER_CODEX_AUTH_B64; then
+  put "$NS" atelier-codex --from-literal=auth.json="$(printf '%s' "${in[ATELIER_CODEX_AUTH_B64]}" | base64 -d)"
+fi
+if has ATELIER_MINIMAX_API_KEY || has ATELIER_CLAUDE_CODE_OAUTH_TOKEN; then
+  put "$NS" atelier-llm \
+    --from-literal=MINIMAX_API_KEY="${in[ATELIER_MINIMAX_API_KEY]:-}" \
+    --from-literal=CLAUDE_CODE_OAUTH_TOKEN="${in[ATELIER_CLAUDE_CODE_OAUTH_TOKEN]:-}"
+fi
 
 # Generated once, never rotated by a re-run.
 once "$NS" platform-internal --from-literal=INTERNAL_API_TOKEN="$(hex 32)"
@@ -86,6 +98,13 @@ once "$NS" pg-daily --type=kubernetes.io/basic-auth \
 once "$NS" valkey-roulette --from-literal=password="$(hex 32)"
 once "$NS" fair-roll --from-literal=FAIR_ROLL_ROOT="$(hex 32)"
 once "$NS" daily-bonus --from-literal=DAILY_HASH_PEPPER="$(hex 32)"
+once "$NS" pg-atelier --type=kubernetes.io/basic-auth \
+  --from-literal=username=atelier --from-literal=password="$(hex 24)"
+# Service tokens between atelier-backend and its llm-gateway, TeX and browser.
+once "$NS" atelier-internal \
+  --from-literal=LLM_GATEWAY_TOKEN="$(hex 32)" \
+  --from-literal=ATELIER_TEX_TOKEN="$(hex 32)" \
+  --from-literal=ATELIER_BROWSER_TOKEN="$(hex 32)"
 once "$NS" valkey --from-literal=password="$(hex 32)"
 once "$NS" rabbitmq --from-literal=username=outegro --from-literal=password="$(hex 32)"
 # Telegram echoes it on every webhook call (X-Telegram-Bot-Api-Secret-Token).
