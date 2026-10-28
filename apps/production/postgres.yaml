@@ -104,6 +104,12 @@ spec:
         login: true
         passwordSecret:
           name: pg-daily
+      # Atelier (ADR-013): needs pg-atelier (atelier-rollout step 0).
+      - name: atelier
+        ensure: present
+        login: true
+        passwordSecret:
+          name: pg-atelier
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
@@ -195,6 +201,17 @@ metadata:
 spec:
   name: daily
   owner: daily
+  cluster:
+    name: pg
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: atelier
+  namespace: outegro
+spec:
+  name: atelier
+  owner: atelier
   cluster:
     name: pg
 ---
