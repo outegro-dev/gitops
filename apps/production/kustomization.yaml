@@ -23,10 +23,10 @@ resources:
   # in the platform repo, steps 0–2).
   - wallet.yaml
   # Roulette (ADR-012): its own Valkey from step 1; the apps and the PreSync
-  # migration of its three databases switch on in step 3 of
-  # docs/06-operations/roulette-rollout.md in the platform repo.
+  # migration of its three databases from step 3 of
+  # docs/06-operations/roulette-rollout.md in the platform repo (season 1).
   - valkey-roulette.yaml
-  # - roulette.yaml
+  - roulette.yaml
   # Atelier (atelier.outegro.dev, cv.outegro.dev). Its PreSync migration needs
   # the atelier images below, the pg-atelier secret and the atelier database.
   # - atelier.yaml

@@ -132,8 +132,9 @@ spec:
             # commit, set in step 3 once that round has happened. Without it
             # the pod does not start and nothing is recorded; once recorded
             # it can never change for this chain.
-            # - name: FAIR_ROLL_PUBLIC_SEED
-            #   value: drand-quicknet:<round>:<randomness>
+            # Season 1 (docs/06-operations/roulette-seasons.md in the platform repo).
+            - name: FAIR_ROLL_PUBLIC_SEED
+              value: drand-quicknet:33460746:5c5fc64b250abd3b015521697230b2faf4d8bb6c95241507c36a8eb59497a27a
           ports:
             - name: http
               containerPort: 4100
