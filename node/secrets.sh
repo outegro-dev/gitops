@@ -105,6 +105,9 @@ once "$NS" atelier-internal \
   --from-literal=LLM_GATEWAY_TOKEN="$(hex 32)" \
   --from-literal=ATELIER_TEX_TOKEN="$(hex 32)" \
   --from-literal=ATELIER_BROWSER_TOKEN="$(hex 32)"
+# Signs the owner's device cookie on cv.outegro.dev: their own opens of a CV
+# link do not count as the recruiter's.
+once "$NS" atelier-cv --from-literal=CV_OWNER_COOKIE_SECRET="$(hex 32)"
 once "$NS" valkey --from-literal=password="$(hex 32)"
 once "$NS" rabbitmq --from-literal=username=outegro --from-literal=password="$(hex 32)"
 # Telegram echoes it on every webhook call (X-Telegram-Bot-Api-Secret-Token).

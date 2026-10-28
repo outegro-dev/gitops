@@ -113,6 +113,14 @@ spec:
               value: https://atelier.outegro.dev
             - name: CV_PUBLIC_BASE_URL
               value: https://cv.outegro.dev
+            # The owner's device cookie, readable on atelier. and cv.
+            - name: CV_OWNER_COOKIE_DOMAIN
+              value: .outegro.dev
+            - name: CV_OWNER_COOKIE_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: atelier-cv
+                  key: CV_OWNER_COOKIE_SECRET
             # No object storage in the cluster yet: files live in Postgres
             # until an R2 bucket exists (then S3_* and STORAGE_DRIVER=s3).
             - name: STORAGE_DRIVER
@@ -551,7 +559,7 @@ spec:
               value: cf-connecting-ip
           ports:
             - name: http
-              containerPort: 3007
+              containerPort: 3008
           readinessProbe:
             httpGet:
               path: /health
@@ -584,7 +592,7 @@ spec:
     app: atelier-web
   ports:
     - name: http
-      port: 3007
+      port: 3008
       targetPort: http
 ---
 # atelier.outegro.dev: everything goes to the web app; the backend stays inside
