@@ -27,6 +27,9 @@ resources:
   # docs/06-operations/roulette-rollout.md in the platform repo.
   - valkey-roulette.yaml
   # - roulette.yaml
+  # Atelier (atelier.outegro.dev, cv.outegro.dev). Its PreSync migration needs
+  # the atelier images below, the pg-atelier secret and the atelier database.
+  # - atelier.yaml
   - pay.yaml
   - admin.yaml
   - hooks.yaml
@@ -87,14 +90,34 @@ images:
   - name: outegro/edu-web
     newTag: 13e466d43288@sha256:d2372fa18db0eb7bcc459820e874e632f861cacfb8456206a0e2e66cb3dc278f
     newName: ghcr.io/outegro-dev/edu-web
-# Every service and stateful workload here runs as outegro-core (OPS-08).
+  - name: outegro/atelier-backend
+    newTag: pending
+  - name: outegro/atelier-web
+    newTag: pending
+  - name: outegro/llm-gateway
+    newTag: pending
+  - name: outegro/atelier-tex
+    newTag: pending
+  - name: outegro/atelier-browser
+    newTag: pending
+# Every service and stateful workload here runs as outegro-core (OPS-08),
+# except the heavy Atelier workers (Chromium, XeLaTeX, model CLIs): labelled
+# outegro.dev/priority=agents, they rank with Hermes and are evicted first.
 patches:
   - target:
       kind: Deployment
+      labelSelector: outegro.dev/priority!=agents
     patch: |-
       - op: add
         path: /spec/template/spec/priorityClassName
         value: outegro-core
+  - target:
+      kind: Deployment
+      labelSelector: outegro.dev/priority=agents
+    patch: |-
+      - op: add
+        path: /spec/template/spec/priorityClassName
+        value: outegro-agents
   - target:
       kind: StatefulSet
     patch: |-

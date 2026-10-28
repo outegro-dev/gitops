@@ -18,6 +18,7 @@ data:
     {"id":"battleship-web","name":"Battleship","redirectUris":["https://battleship.outegro.dev/auth/callback"]},
     {"id":"edu-web","name":"Education","redirectUris":["https://edu.outegro.dev/auth/callback"]},
     {"id":"roulette-web","name":"Roulette","redirectUris":["https://roulette.outegro.dev/auth/callback"]},
+    {"id":"atelier-web","name":"Atelier","redirectUris":["https://atelier.outegro.dev/auth/callback"]},
     {"id":"landing-web","name":"outegro.dev","redirectUris":["https://outegro.dev/auth/callback"]}]
 ---
 apiVersion: apps/v1
