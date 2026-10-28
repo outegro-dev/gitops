@@ -551,7 +551,7 @@ spec:
               value: cf-connecting-ip
           ports:
             - name: http
-              containerPort: 3007
+              containerPort: 3008
           readinessProbe:
             httpGet:
               path: /health
@@ -584,7 +584,7 @@ spec:
     app: atelier-web
   ports:
     - name: http
-      port: 3007
+      port: 3008
       targetPort: http
 ---
 # atelier.outegro.dev: everything goes to the web app; the backend stays inside
