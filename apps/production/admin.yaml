@@ -38,10 +38,9 @@ spec:
               value: http://battleship-backend:4004
             - name: EDU_API_URL
               value: http://edu-backend:4005
-            # The Wallet section: on in step 3 of wallet-rollout.md, with
-            # wallet.yaml; without it the section says "not connected yet".
-            # - name: WALLET_API_URL
-            #   value: http://wallet-backend:4007
+            # The Wallet section (grumbles); unset, it says "not connected yet".
+            - name: WALLET_API_URL
+              value: http://wallet-backend:4007
             # The Roulette section: on in step 3 of roulette-rollout.md, with
             # roulette.yaml; without them it says "not connected yet".
             # - name: ROULETTE_API_URL
