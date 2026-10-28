@@ -19,9 +19,9 @@ resources:
   # below, the pg-edu secret and the edu database (rollout step 1).
   - edu.yaml
   # Wallet (grumbles, ADR-011). Its PreSync migration needs the wallet image
-  # below, the pg-wallet secret and the wallet database: switched on in step
-  # 3 of docs/06-operations/wallet-rollout.md in the platform repo.
-  # - wallet.yaml
+  # below, the pg-wallet secret and the wallet database (wallet-rollout.md
+  # in the platform repo, steps 0–2).
+  - wallet.yaml
   - pay.yaml
   - admin.yaml
   - hooks.yaml
